@@ -3,24 +3,27 @@
 #
 #   valheim  the test server (deploy.ps1): a local image that starts the game directly
 #   update   the live image with its own startup (update.ps1 only): steamcmd + BepInEx merge
+#
+# WORLD_NAME, SERVER_ARGS, PUID and PGID come from .env, which pull-save.ps1 writes from the
+# live server's docker-compose.yml.
 name: munin-test
 
-# The live server's image. update.ps1 warns when live moves to another one.
+# The image the live server runs. update.ps1 and deploy.ps1 warn when live moves to another one.
 x-base-image: &base-image ghcr.io/community-valheim-tools/valheim-server:1.4.1
 
 x-env: &env
-  # --- as on live ---
+  # --- as on live (from .env) ---
   PUID: ${PUID:-1000}
   PGID: ${PGID:-1000}
   WORLD_NAME: ${WORLD_NAME:?run pull-save.ps1 first}
   SERVER_ARGS: ${SERVER_ARGS:-}
-  SERVER_PORT: 2456
-  CROSSPLAY: "false"
-  BEPINEX: "true"
   # --- test only ---
   SERVER_NAME: "${WORLD_NAME} test"
+  SERVER_PORT: 2456
   SERVER_PUBLIC: "false"
   SERVER_PASS: ""                  # no password: not public, and only reachable from this PC
+  CROSSPLAY: "false"               # crossplay stops the server taking inbound UDP, so it couldn't be joined by IP
+  BEPINEX: "true"
   STATUS_HTTP: "false"             # needs a public server
   BACKUPS: "false"
   UPDATE_CRON: ""
@@ -38,6 +41,8 @@ services:
       context: ./image
       args:
         BASE_IMAGE: *base-image
+        UID: ${PUID:-1000}
+        GID: ${PGID:-1000}
     image: munin-test-fast
     container_name: munin-test
     init: true                     # forwards SIGTERM, so the world is saved on stop

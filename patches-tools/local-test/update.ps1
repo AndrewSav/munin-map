@@ -15,10 +15,6 @@
   Run it when live updates, or whenever deploy.ps1 warns that the versions differ. deploy.ps1
   runs it on its own the first time.
 #>
-param(
-  [string]$SshHost = "",
-  [string]$RemoteDir = ""   # relative to the ssh user's home
-)
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 . (Join-Path $here "common.ps1")
@@ -54,5 +50,5 @@ Step "copy the merged install into the server volume" {
 
 $local = Get-TestVersions (Get-Content (Join-Path $here "data\server\bepinex\BepInEx\LogOutput.log") -Raw)
 $local.Image = Get-BaseImage
-Compare-WithLive $local $SshHost $RemoteDir
+Compare-WithLive $local
 Write-Host ("Updated in {0:n0} s." -f $total.Elapsed.TotalSeconds)
