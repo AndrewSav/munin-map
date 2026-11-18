@@ -1,46 +1,72 @@
 # Local test server for Munin Map. It copies the live server where that matters for the mod,
-# and differs only where a test server must. See README.md next to this file.
+# and starts as fast as possible. See README.md next to this file.
+#
+#   valheim  the test server (deploy.ps1): a local image that starts the game directly
+#   update   the live image with its own startup (update.ps1 only): steamcmd + BepInEx merge
 name: munin-test
+
+# The live server's image. update.ps1 warns when live moves to another one.
+x-base-image: &base-image ghcr.io/community-valheim-tools/valheim-server:1.4.1
+
+x-env: &env
+  # --- as on live ---
+  PUID: ${PUID:-1000}
+  PGID: ${PGID:-1000}
+  WORLD_NAME: ${WORLD_NAME:?run pull-save.ps1 first}
+  SERVER_ARGS: ${SERVER_ARGS:-}
+  SERVER_PORT: 2456
+  CROSSPLAY: "false"
+  BEPINEX: "true"
+  # --- test only ---
+  SERVER_NAME: "${WORLD_NAME} test"
+  SERVER_PUBLIC: "false"
+  SERVER_PASS: ""                  # no password: not public, and only reachable from the local machine
+  STATUS_HTTP: "false"             # needs a public server
+  BACKUPS: "false"
+  UPDATE_CRON: ""
+  RESTART_CRON: ""
+  STEAMCMD_ARGS: ""                # update only; re-checking every file over a Windows-drive mount took ~38 s
+
+x-ports: &ports
+  # 127.0.0.1 only: nothing else on the network can reach the test server
+  - 127.0.0.1:2456-2457:2456-2457/udp
+  - 127.0.0.1:3000:3000/tcp        # Munin Map
+
 services:
   valheim:
-    # Same pinned image as live. Older images (and upstream's untagged lloesche/valheim-server)
-    # corrupted Valheim 1.0 worlds when run under a non-root PUID.
-    image: ghcr.io/community-valheim-tools/valheim-server:1.4.1
+    build:
+      context: ./image
+      args:
+        BASE_IMAGE: *base-image
+    image: munin-test-fast
     container_name: munin-test
-    stop_grace_period: 120s          # the world is saved on shutdown; don't SIGKILL mid-save
-    cap_add:
-      - SYS_NICE
-    environment:
-      # --- as on live ---
-      PUID: ${PUID:-1000}
-      PGID: ${PGID:-1000}
-      WORLD_NAME: ${WORLD_NAME:?run pull-save.ps1 first}
-      SERVER_ARGS: ${SERVER_ARGS:-}
-      SERVER_PORT: 2456
-      CROSSPLAY: "false"
-      BEPINEX: "true"                # plugins are copied in from /config/bepinex/plugins on every start
-      # --- test only ---
-      SERVER_NAME: "${WORLD_NAME} test"
-      SERVER_PUBLIC: "false"
-      SERVER_PASS: ""                # no password: not public, and only reachable from the local machine
-      STATUS_HTTP: "false"           # needs a public server
-      BACKUPS: "false"
-      UPDATE_CRON: ""                # the server still updates to the latest build on each start
-      # live re-verifies every server file on start (13 s on its own disk); here, through
-      # Docker Desktop's Windows-drive mount, that takes ~38 s, so only download updates
-      STEAMCMD_ARGS: ""
-      RESTART_CRON: ""
-    ports:
-      # 127.0.0.1 only: nothing else on the network can reach the test server
-      - 127.0.0.1:2456-2457:2456-2457/udp
-      - 127.0.0.1:3000:3000/tcp      # Munin Map
+    init: true                     # forwards SIGTERM, so the world is saved on stop
+    stop_grace_period: 60s
+    cap_add: [SYS_NICE]
+    environment: *env
+    ports: *ports
     volumes:
-      - ./data/config:/config        # world, plugin, Munin settings and map data
-      - ./data/server:/opt/valheim   # steamcmd install and the merged BepInEx copy (~6 GB)
-      # Munin's tiles, stats and models: tens of thousands of files. On a Windows-drive mount the image's
-      # chown/chmod passes over them on every start cost ~40 s, so they live on a Docker volume.
-      # pull-save.ps1 points Munin's data_path here; under /home/valheim the bootstrap's chown
-      # gives it to the valheim user.
+      - ./data/config:/config      # world, plugin, Munin settings
+      # The merged server + BepInEx install, copied here by update.ps1. On a Docker volume the
+      # game starts ~9 s faster than from a Windows-drive mount.
+      - server:/opt/valheim
+      # Munin's tiles, stats and models: tens of thousands of files, kept off the Windows drive.
+      # pull-save.ps1 points Munin's data_path here.
       - munin-data:/home/valheim/munin-data
+
+  update:
+    profiles: [update]
+    image: *base-image
+    container_name: munin-test-update
+    stop_grace_period: 60s
+    cap_add: [SYS_NICE]
+    environment: *env
+    ports: *ports
+    volumes:
+      - ./data/config:/config
+      - ./data/server:/opt/valheim  # steamcmd install, the merged copy, downloads; the build compiles against it
+      - munin-data:/home/valheim/munin-data
+
 volumes:
+  server:
   munin-data:
