@@ -5,7 +5,8 @@ with the Munin Map build from this checkout. Use it to test a
 change before it goes to the live server, where every deploy means a restart.
 
 Fork-only tooling: it lives on the `patches` branch, in this folder, so it never conflicts
-with upstream on a rebase. Everything the scripts create goes in `data/`, which git ignores.
+with upstream on a rebase. Everything the scripts create goes in `data/` (git ignores it) or
+in the Docker volumes `munin-test_server` and `munin-test_munin-data`.
 
 ## Needs
 
@@ -21,7 +22,8 @@ with upstream on a rebase. Everything the scripts create goes in `data/`, which 
 
 ```powershell
 .\patches-tools\local-test\pull-save.ps1   # now and then: fresh copy of the live world
-.\patches-tools\local-test\deploy.ps1      # after each code change: build, deploy, restart
+.\patches-tools\local-test\deploy.ps1      # after each code change: build, deploy, restart (~42 s)
+.\patches-tools\local-test\update.ps1      # when live updates Valheim, BepInEx or its image
 ```
 
 Then, in Valheim: **Join game → Add server → `127.0.0.1:2456`**, with no password. The map is
@@ -30,7 +32,24 @@ in-game map (`M`). Munin hides players who don't share their position, as on liv
 
 `deploy.ps1 -NoBuild` restarts with the plugin that is already deployed.
 
-Neither script asks before restarting: whoever is on the test server is disconnected.
+None of the scripts asks before restarting: whoever is on the test server is disconnected.
+
+## Two images
+
+`compose.yml` has two services:
+
+- **`valheim`**, the test server, built from `image/`. It is the live image
+  (`ghcr.io/community-valheim-tools/valheim-server:1.4.1`) with its startup replaced by
+  `image/fast-start.sh`, which starts the already-merged server + BepInEx install directly.
+  The live image's startup runs supervisord, an owner and permission pass over every file,
+  steamcmd, and a BepInEx check and merge. It cost about 35 s on every start here.
+- **`update`**, the live image as it is, with its own startup. Only `update.ps1` runs it, to
+  let steamcmd update the server and BepInEx be merged in.
+
+So the test server never updates itself. `deploy.ps1` prints the test server's Valheim and
+BepInEx versions and base image next to live's (read over ssh) and warns about any
+difference. To catch up, run `update.ps1`. If the base image differs, first change
+`x-base-image` at the top of `compose.yml` to match live.
 
 ## What the scripts do
 
@@ -41,51 +60,64 @@ Neither script asks before restarting: whoever is on the test server is disconne
 3. Copies it down with scp and checks the file count.
 4. Copies the live Munin settings too, changing two lines:
    - `discord_webhook` is blanked, so the test server never posts to the real Discord.
-   - `data_path` points at the `munin-data` Docker volume (see below).
+   - `data_path` points at the `munin-test_munin-data` volume.
 5. Stops the local server, if it is running, and swaps in the world and the settings.
 
+**`update.ps1`**:
+1. Rebuilds the `valheim` image, pulling the base image again.
+2. Runs the `update` service until BepInEx has loaded, which means steamcmd has updated
+   `data/server` and the merge is done, then removes it.
+3. Copies the merged install (`data/server/bepinex`, 2.1 GB) into the `munin-test_server`
+   volume. From the volume the game starts about 9 s faster than from a Windows drive.
+4. Prints the versions next to live's.
+
 **`deploy.ps1`**:
-1. On the first run only, starts the server so steamcmd installs it (about 4 minutes).
-2. Builds with the repo's `build.ps1`, against that install's own game assemblies in
-   `data/server/server/valheim_server_Data/Managed`.
+1. The first time, or when the server volume is missing, runs `update.ps1`.
+2. Builds with the repo's `build.ps1`, against the game assemblies in
+   `data/server/server/valheim_server_Data/Managed`. The output is quiet unless the build fails
+   or warns.
 3. Copies only `MuninMap.dll` into `data/config/bepinex/plugins/`, as on live, so the web app
    is served from inside the DLL. It prints the start of the DLL's SHA-256.
-4. Recreates the container, which copies the plugin in as it starts.
-5. Waits for "Game server connected" in the log and for the map to answer, timing each step.
+4. Recreates the test server, whose start copies the plugin in. The world is saved on the
+   stop.
+5. Waits for "Game server connected" and for the map to answer, timing each step, then
+   compares the versions with live.
 
 ## How the test server differs from live
 
-It matches live in the image, user ID, world, world modifiers and Munin settings. It changes
-these:
+It matches live in the game build, BepInEx pack, base image, user ID, world, world modifiers
+and Munin settings. It changes these:
 
 | Test server | Why |
 |---|---|
+| Starts the game directly (`image/fast-start.sh`) | about 35 s saved per start |
+| Updates only when `update.ps1` runs | part of the fast start; `deploy.ps1` warns when versions differ |
+| Server files on the `munin-test_server` volume | about 9 s faster to load than from a Windows drive |
 | Named `<world> test`, not public, no password | ports are bound to 127.0.0.1, so only this PC can connect |
-| No backups, scheduled restarts or update checks | test only; the server still updates on each start |
-| No status page | it needs a public server |
+| Crossplay off | with crossplay the server takes no inbound UDP, so it can't be joined by IP |
+| No backups, scheduled restarts or status page | test only; the status page also needs a public server |
 | `STEAMCMD_ARGS` empty | re-checking every server file through a Windows-drive mount took ~38 s |
-| Munin `data_path` on a Docker volume | see below |
+| Munin `data_path` on a Docker volume | the image's file passes over tens of thousands of map files on a Windows drive cost ~40 s per start |
 | Munin's Discord webhook blank | never post test events to the real Discord |
 
-On every start the image walks every file in `/config` and `/opt/valheim` to fix their
-owner and permissions. Through Docker Desktop's Windows-drive mount that is slow, and Munin's data is
-tens of thousands of files that keep growing. With the data on a Windows drive, a start
-took about 40 s longer. On a Docker volume the walk skips it. To clear Munin's data, stop the
-server and run `docker volume rm munin-test_munin-data`.
+To start Munin's data afresh: stop the server, then run `docker volume rm munin-test_munin-data`.
 
 The world, the plugin, the settings and the server install stay under `data/`, where you can
 browse them.
 
 ## Timings (2026-11-18)
 
-| Step | Time |
-|---|---|
-| `pull-save.ps1` | 1.5 s (about 10 s when it stops a running server) |
-| First `deploy.ps1` (installs the server) | 412 s |
-| Build | 8–9 s (30 s the first time) |
-| Restart the container | 1–15 s |
-| Game server up | 66 s |
-| Map answering | 2 s |
-| **`deploy.ps1` round, start to finish** | **about 78 s** |
+| | Stock image | Fast image |
+|---|---|---|
+| Build | 8 s | 4–6 s |
+| Stop + recreate | 1–15 s | 6 s |
+| Game server up | 66 s | 31 s |
+| Map answering | 2 s | 0 s |
+| **`deploy.ps1` round** | **about 78 s** | **about 42 s** |
+| From `deploy.ps1` to standing in the world (timed by hand) | n/a | about 70 s |
+| `update.ps1` (nothing new on Steam) | n/a | about 60 s |
+| `pull-save.ps1` | 1.5 s (about 10 s when it stops a running server) | same |
 
-The live server's in-container restart takes about 73 s.
+Where the 31 s goes: Unity loading the game's assets about 15 s, Steam and the dungeon
+database about 4 s, the world about 2 s, then about 6 s until
+"Game server connected". All of that is the game itself.
