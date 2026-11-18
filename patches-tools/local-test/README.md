@@ -1,22 +1,31 @@
 # Local test server
 
-A local Valheim dedicated server in Docker running a copy of the live world
-with the Munin Map build from this checkout. Use it to test a
-change before it goes to the live server, where every deploy means a restart.
+A local Valheim dedicated server in Docker running a copy of the live world with
+the Munin Map build from this checkout. Use it to test a change before it goes to the live
+server, where every deploy means a restart.
 
 Fork-only tooling: it lives on the `patches` branch, in this folder, so it never conflicts
-with upstream on a rebase. Everything the scripts create goes in `data/` (git ignores it) or
-in the Docker volumes `munin-test_server` and `munin-test_munin-data`.
+with upstream on a rebase. Everything the scripts create goes in `data/`, `settings.psd1` and
+`.env` (git ignores all three) or in the Docker volumes `munin-test_server` and
+`munin-test_munin-data`.
 
 ## Needs
 
+- A live server running `ghcr.io/community-valheim-tools/valheim-server` with BepInEx and
+  Munin Map, with its image backups on (`BACKUPS=true`, the default).
 - Docker Desktop, running.
-- Windows OpenSSH (`C:\Program Files\OpenSSH`) with a key in the ssh-agent that logs in to
-  the live server. The ssh that comes with Git Bash does not use the agent.
+- Windows OpenSSH (`C:\Program Files\OpenSSH`) with a key in the ssh-agent that logs in to the
+  live server. The ssh that comes with Git Bash does not use the agent.
 - The .NET SDK (8 or later), for the repo's `build.ps1`.
 - The Valheim client, with a **throwaway character**. Your character is saved on your PC, not
   on the server, so anything that happens to it in the test world (items taken or lost,
   skills lost on death) carries over to the live server.
+
+## Setup
+
+Copy `settings.example.psd1` to `settings.psd1` and fill in the live server's ssh host and
+its compose folder. Everything else (the world name, world modifiers and user ID) is read
+from the live server's `docker-compose.yml` by `pull-save.ps1`.
 
 ## The loop
 
@@ -38,11 +47,10 @@ None of the scripts asks before restarting: whoever is on the test server is dis
 
 `compose.yml` has two services:
 
-- **`valheim`**, the test server, built from `image/`. It is the live image
-  (`ghcr.io/community-valheim-tools/valheim-server:1.4.1`) with its startup replaced by
-  `image/fast-start.sh`, which starts the already-merged server + BepInEx install directly.
-  The live image's startup runs supervisord, an owner and permission pass over every file,
-  steamcmd, and a BepInEx check and merge. It cost about 35 s on every start here.
+- **`valheim`**, the test server, built from `image/`. It is the live image with its startup
+  replaced by `image/fast-start.sh`, which starts the already-merged server + BepInEx install
+  directly. The live image's startup runs supervisord, an owner and permission pass over
+  every file, steamcmd, and a BepInEx check and merge. It cost about 35 s on every start here.
 - **`update`**, the live image as it is, with its own startup. Only `update.ps1` runs it, to
   let steamcmd update the server and BepInEx be merged in.
 
@@ -54,20 +62,23 @@ difference. To catch up, run `update.ps1`. If the base image differs, first chan
 ## What the scripts do
 
 **`pull-save.ps1`** changes nothing on the live server. It:
-1. Finds the newest `config/backups/AUTOBACKUP-<world>-*` in the live compose folder. That is the image's daily copy, taken only from a committed save. It
-   never copies the live world folder, because a copy taken mid-save can be broken.
-2. Checks that the backup's `_main.N.ok` marker matches its `_main.N.db2`.
-3. Copies it down with scp and checks the file count.
-4. Copies the live Munin settings too, changing two lines:
+1. Reads the live `docker-compose.yml` for `WORLD_NAME`, `SERVER_ARGS`, `PUID` and `PGID`,
+   and writes them to `.env`, which `compose.yml` reads.
+2. Finds the newest `config/backups/AUTOBACKUP-<world>-*` in the live compose folder. That is
+   the image's daily copy, taken only from a committed save. It never copies the live world
+   folder, because a copy taken mid-save can be broken.
+3. Checks that the backup's `_main.N.ok` marker matches its `_main.N.db2`.
+4. Copies it down with scp and checks the file count.
+5. Copies the live Munin settings too, changing two lines:
    - `discord_webhook` is blanked, so the test server never posts to the real Discord.
-   - `data_path` points at the `munin-test_munin-data` volume.
-5. Stops the local server, if it is running, and swaps in the world and the settings.
+   - `data_path` points at the `munin-test_munin-data` volume (see below).
+6. Stops the local server, if it is running, and swaps in the world and the settings.
 
 **`update.ps1`**:
 1. Rebuilds the `valheim` image, pulling the base image again.
 2. Runs the `update` service until BepInEx has loaded, which means steamcmd has updated
    `data/server` and the merge is done, then removes it.
-3. Copies the merged install (`data/server/bepinex`, 2.1 GB) into the `munin-test_server`
+3. Copies the merged install (`data/server/bepinex`, about 2 GB) into the `munin-test_server`
    volume. From the volume the game starts about 9 s faster than from a Windows drive.
 4. Prints the versions next to live's.
 
@@ -109,15 +120,15 @@ browse them.
 
 | | Stock image | Fast image |
 |---|---|---|
-| Build | 8 s | 4–6 s |
+| Build | 8 s | 4–7 s |
 | Stop + recreate | 1–15 s | 6 s |
-| Game server up | 66 s | 31 s |
+| Game server up | 66 s | 30–31 s |
 | Map answering | 2 s | 0 s |
 | **`deploy.ps1` round** | **about 78 s** | **about 42 s** |
 | From `deploy.ps1` to standing in the world (timed by hand) | n/a | about 70 s |
-| `update.ps1` (nothing new on Steam) | n/a | about 60 s |
+| `update.ps1` (nothing new on Steam) | n/a | 60–75 s |
 | `pull-save.ps1` | 1.5 s (about 10 s when it stops a running server) | same |
 
 Where the 31 s goes: Unity loading the game's assets about 15 s, Steam and the dungeon
-database about 4 s, the world about 2 s, then about 6 s until
-"Game server connected". All of that is the game itself.
+database about 4 s, the world about 2 s, then about 6 s until "Game server connected". All of
+that is the game itself.

@@ -27,7 +27,8 @@ $managed = Join-Path $data "server\server\valheim_server_Data\Managed"
 $total = [Diagnostics.Stopwatch]::StartNew()
 
 Assert-Docker
-if (-not (Test-Path (Join-Path $data "config\worlds_local"))) { throw "no world yet: run pull-save.ps1 first" }
+$world = (Get-LiveEnv).WORLD_NAME
+if (-not (Test-Path (Join-Path $data "config\worlds_local\$world"))) { throw "no world yet: run pull-save.ps1 first" }
 docker volume inspect munin-test_server *> $null
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $managed "assembly_valheim.dll"))) {
   Step "first run: install the server (update.ps1)" { & (Join-Path $here "update.ps1") }

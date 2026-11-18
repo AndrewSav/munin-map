@@ -1,2 +1,5 @@
 # the test server's world, server install, Munin data and build inputs
 data/
+# where the live server is (copied from settings.example.psd1), and the live settings pull-save.ps1 reads
+settings.psd1
+.env
