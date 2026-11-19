@@ -4,7 +4,7 @@ title: Subcategories for marker layers (traders, landmarks and others)
 status: To Do
 assignee: []
 created_date: '2026-11-19T10:18:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-19T11:18:00Z'
 labels:
   - web
 dependencies: []
@@ -38,3 +38,9 @@ Write it per decision-2.
 - [ ] #7 Written per decision-2
 - [ ] #8 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+To consider before starting: the Markers panel already has individual entries for each kind within a layer (Landmarks and Traders, for example), so you can find one kind there even without subcategories. That makes the missing subcategories less of a problem, and may make this task unnecessary. Decide whether it is still worth doing.
+<!-- SECTION:NOTES:END -->
