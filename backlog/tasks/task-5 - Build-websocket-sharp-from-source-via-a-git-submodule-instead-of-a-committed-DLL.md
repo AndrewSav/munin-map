@@ -6,9 +6,10 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:31:00Z'
-updated_date: '2026-11-18T03:46:00Z'
+updated_date: '2026-11-19T10:59:00Z'
 labels:
   - build
+milestone: Initial release
 dependencies:
   - TASK-6
 references:
