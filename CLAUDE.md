@@ -1,3 +1,25 @@
+# munin-map fork: the `patches` branch
+
+This branch carries our own changes on top of upstream (cocopuff2u-gaming/munin-map) and is
+rebased onto each upstream release (decision-1 in `backlog/decisions/`).
+
+**Write every change so it rebases easily (decision-2).** Consider this first, before how the
+change fits the codebase:
+- Put new behaviour in new files we own. Keep edits to upstream files small and surgical: a
+  call, a hook, a registration line.
+- Mark edits in upstream files with a comment such as `// patches: TASK-1` where the format
+  allows a harmless one (not JSON, not Markdown table rows).
+- Start every commit subject with the task ID (`TASK-1: ...`), one commit per feature.
+- Never reformat, reorder or tidy upstream lines you don't need to change. Leave
+  `CHANGELOG.md` and version numbers alone.
+- Git is the record of what the fork touches. Upstream files changed, and the tasks behind one:
+  `git diff --stat <release>..patches -- . ':!backlog' ':!patches-tools' ':!CLAUDE.md'`
+  `git log --format=%s <release>..patches -- <file>`
+  (`<release>`: the upstream tag `patches` sits on, e.g. `git describe --tags --abbrev=0 upstream/main`).
+- After resolving a rebase conflict, reshape our code so that spot is less likely to conflict
+  again.
+
+Fork-only tooling goes in `patches-tools/`.
 
 <!-- BACKLOG.MD GUIDELINES START -->
 <!-- backlog.md-instructions-version: 1.55.3 -->
