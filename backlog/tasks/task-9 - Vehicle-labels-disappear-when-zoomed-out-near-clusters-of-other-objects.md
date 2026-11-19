@@ -4,6 +4,7 @@ title: Vehicle labels disappear when zoomed out near clusters of other objects
 status: To Do
 assignee: []
 created_date: '2026-11-18T08:27:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - web
 dependencies: []
@@ -30,4 +31,5 @@ The local test server (`patches-tools/local-test/`) with the copied live world i
 - [ ] #3 A fix is proposed in the task notes and agreed with the user before any implementation starts
 - [ ] #4 With vehicle labels on, every vehicle label stays visible at every zoom level, however many other objects are near it
 - [ ] #5 Labels of other marker kinds behave as before, unless the agreed fix says otherwise
+- [ ] #6 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

@@ -4,6 +4,7 @@ title: Subcategories for marker layers (traders, landmarks and others)
 status: To Do
 assignee: []
 created_date: '2026-11-19T10:18:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - web
 dependencies: []
@@ -35,4 +36,5 @@ Write it per decision-2.
 - [ ] #5 Turning a whole layer on or off, and the choices people already have saved for it, keep working as before
 - [ ] #6 With the spoiler view (TASK-1), subcategory counts and cycling follow what is currently shown, as for whole layers
 - [ ] #7 Written per decision-2
+- [ ] #8 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

@@ -19,9 +19,10 @@ How easily a change will rebase is the first consideration when writing it, ahea
 - **Don't touch upstream lines we don't need to:** no reformatting, reordering, renaming, whitespace or comment tidying. Leave `CHANGELOG.md` and the version numbers alone.
 - **When a change has to alter how upstream code works,** accept the edit, but confine it to as few places as possible, and keep the rest of the change in our own files.
 - **Git is the record of what the fork touches; no hand-kept lists.** Before a rebase, or when reviewing a task, list every upstream file `patches` changes compared with the release it is based on, and the tasks behind a file:
-  - `git diff --stat <release>..patches -- . ':!backlog' ':!patches-tools' ':!CLAUDE.md'`
+  - `git diff --stat <release>..patches -- . ':!backlog' ':!patches-tools' ':!CLAUDE.md' ':!PATCHES.md'`
   - `git log --format=%s <release>..patches -- <file>`
   where `<release>` is the upstream tag `patches` sits on (`git describe --tags --abbrev=0 upstream/main` after fetching).
+- **Keep `PATCHES.md` up to date.** It is the register of the fork's product changes from upstream: one entry per change to what the plugin or the map does or how it is configured, naming its task, saying what changes for players and admins and how behaviour now differs from upstream. Tooling (the local test server, CI, the backlog) stays out. A product task is not Done until its entry is written, and an entry is updated whenever the change is.
 - **When a rebase does conflict,** resolve it, then reshape our code around that spot so the next rebase is less likely to conflict there: move the logic into our own files, or move the hook to a quieter place. Record what happened in the task's notes.
 
 ## Consequences

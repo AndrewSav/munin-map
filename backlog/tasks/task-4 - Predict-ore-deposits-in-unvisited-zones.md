@@ -4,6 +4,7 @@ title: Predict ore deposits in unvisited zones
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - plugin
   - web
@@ -31,4 +32,5 @@ This came up as a proposal on the user's server and has not been tried.
 - [ ] #4 Once a zone is generated, its predicted deposits are replaced by the real ones from the save
 - [ ] #5 With `reveal_all = false`, nothing changes: no predicted deposits are shown or sent
 - [ ] #6 The docs say predictions follow the unmodded game's rules and may be wrong on servers with mods that change world generation
+- [ ] #7 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

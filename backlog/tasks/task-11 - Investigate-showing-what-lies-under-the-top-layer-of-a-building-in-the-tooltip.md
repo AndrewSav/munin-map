@@ -4,6 +4,7 @@ title: Investigate showing what lies under the top layer of a building in the to
 status: To Do
 assignee: []
 created_date: '2026-11-18T09:40:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - web
 dependencies: []
@@ -29,4 +30,5 @@ This is an investigation first; it may or may not end in a change. Find out how 
 - [ ] #2 A proposal is recorded and agreed with the user (or the user decides not to go ahead) before any implementation starts
 - [ ] #3 If implemented: hovering over a building shows the pieces below the top one (furniture under a roof, for example), not just the top piece
 - [ ] #4 If implemented: a specific piece of furniture inside a roofed base in the copied live world can be found from the map alone
+- [ ] #5 If implemented: `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

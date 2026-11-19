@@ -4,6 +4,7 @@ title: Keep player trails across server restarts
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - plugin
   - docs
@@ -29,4 +30,5 @@ Trails should survive a restart. A clean shutdown should keep everything recorde
 - [ ] #5 A missing, empty or unreadable trails file means starting with no trails and a warning in the log, never a failed start
 - [ ] #6 Saving trails causes no noticeable server hitch
 - [ ] #7 The "Where things are kept" table in `docs/ADVANCED.md` lists the new file
+- [ ] #8 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
