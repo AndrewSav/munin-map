@@ -35,3 +35,20 @@ How it differs from upstream:
   `reveal_all` can be repaired: stop the server, delete the world's `fog.png` and `fog.grid` in
   Munin's data folder, and start it again. Munin rebuilds the record from the zones players have
   visited, cartography tables and traces, with 64 m-square edges instead of exact trails.
+
+## TASK-2: In-game day and time
+
+A **Clock** switch in the left bar's **Settings** group, off by default and remembered in each
+browser. When on, a chip at the left end of the bottom-left row (beside coordinates, biome and
+wind) shows the game's day and time, such as "Day 205 · 06:34", with a moon at night.
+
+- It uses the game's own clock: 06:00 is sunrise and 18:00 sunset, and the day number matches
+  the stats panel's.
+- It stands still while nobody is on the server (the game pauses its clock then), and runs fast
+  while everyone sleeps and the game fast-forwards to morning.
+- It is hidden while the page is disconnected, and on a server that doesn't send the time.
+
+How it differs from upstream:
+- Upstream has no clock on the map. Off by default, because the game itself shows none.
+- The players update gains a `clock` field (world time, day length, day, time of day, night).
+  Nothing existing changes. No new server settings.
