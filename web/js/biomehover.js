@@ -2,6 +2,7 @@
 // server's grid of biome numbers (data/biomes.grid, explored ground only), fetched the first time
 // the mouse moves and again when exploration may have grown (a 304 when it hasn't).
 import { worldTile } from './crs.js';
+import { spoilerExplored } from './spoilers.js';   // patches: TASK-1
 
 const N = 1024;   // grid cells a side (~21 m each), BiomeMap.GRID
 
@@ -11,7 +12,7 @@ export class BiomeHover {
   // the biome name at world x, z: '' while loading, in the fog, or past the world's edge
   at(x, z) {
     if (!this.loading && Date.now() - this.loadedAt > 120000) this.load();
-    if (!this.grid) return '';
+    if (!this.grid || !spoilerExplored(x, z)) return '';   // patches: TASK-1 (was: if (!this.grid))
     const col = Math.floor((x / this.size + 0.5) * N), row = Math.floor((0.5 - z / this.size) * N);   // row 0 is the north edge
     if (col < 0 || row < 0 || col >= N || row >= N) return '';
     return this.names[this.grid[row * N + col]] || '';

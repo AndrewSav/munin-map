@@ -674,9 +674,10 @@ namespace MuninMap.World
         {
             j.BeginObject().Prop("x", li.m_position.x, 1).Prop("z", li.m_position.z, 1).Prop("y", li.m_position.y, 1)
              .Prop("cat", cat).Prop("icon", icon).Prop("label", label).Prop("prefab", li.m_location?.m_prefabName);
+            Patches.Spoilers.WriteLocation(j, li);   // patches: TASK-1
         }
-        private static bool Shown(ZoneSystem.LocationInstance li) => Built(li) && Visible(li.m_position.x, li.m_position.z);
-        private static long MixAt(long h, ZoneSystem.LocationInstance li) => Mix(h, li.m_position.x, li.m_position.z);
+        private static bool Shown(ZoneSystem.LocationInstance li) => (Built(li) || Patches.Spoilers.ShowPlanned) && Visible(li.m_position.x, li.m_position.z);   // patches: TASK-1 (planned locations)
+        private static long MixAt(long h, ZoneSystem.LocationInstance li) => Mix(Mix(h, li.m_position.x, li.m_position.z), li.m_placed ? 1 : 0);   // patches: TASK-1 (built or not)
 
         private static IEnumerable<object> BuildParts(JsonWriter j, bool slice)
         {

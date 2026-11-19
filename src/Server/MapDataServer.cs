@@ -307,6 +307,7 @@ namespace MuninMap
         {
             var req = e.Request; var res = e.Response;
             string path = req.Url.AbsolutePath;
+            Patches.Spoilers.BeginRequest(req);   // patches: TASK-1
 
             if (path.StartsWith("/tiles/", StringComparison.Ordinal)) return post ? false : ServeTile(e, path);
             if (path == "/data/environments.json") return post ? false : Text(e, Live.Weather.EnvironmentsJson(), "application/json", nocache: true);   // (each weather's light: the 3D sky)

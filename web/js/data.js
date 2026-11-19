@@ -4,6 +4,7 @@ import { WORLD_HALF } from './crs.js';
 // server's revision numbers.
 
 import { getJSON, getBuffer, on, state } from './net.js';
+import { spoilerChunk } from './spoilers.js';   // patches: TASK-1
 
 export const VEG_KIND = ['none', 'deciduous', 'conifer', 'swamptree', 'misttree', 'deadtree', 'bush', 'rock', 'ore', 'stump', 'berry', 'ashtree'];
 
@@ -91,6 +92,7 @@ class ChunkStore {
     const k = `${cx}_${cz}`;
     if (!this.vegCache) this.vegCache = new Map();
     if (this.vegCache.has(k)) return this.vegCache.get(k);
+    if (!(await spoilerChunk(cx, cz))) return [];   // patches: TASK-1
     const pts = await getBuffer(`data/veg/${k}.bin`, { cache: 'default' }).then((b) => parseVeg(new DataView(b), 0, cx, cz)).catch(() => []);
     this.vegCache.set(k, pts);
     return pts;
@@ -151,7 +153,7 @@ class VegStore {
   async get(cx, cz) {
     await this.ready;
     const rev = this.rev(cx, cz);
-    if (!rev) return { bytes: new ArrayBuffer(0), count: 0 };
+    if (!rev || !(await spoilerChunk(cx, cz))) return { bytes: new ArrayBuffer(0), count: 0 };   // patches: TASK-1 (was: if (!rev))
     const rk = this.region(cx, cz), key = `${rk}:${rev}`;
     if (!this.loads.has(key)) {
       // r3 = the format: these URLs are cached for good, so bump it whenever the format changes

@@ -124,7 +124,7 @@ namespace MuninMap.World
         // PNG with north at the top. Cached until the mask changes.
         public static byte[] Png()
         {
-            if (MuninConfig.REVEAL_ALL)
+            if (MuninConfig.REVEAL_ALL && Patches.Spoilers.Requested)   // patches: TASK-1 (was: REVEAL_ALL)
             {
                 // reveal_all: the whole world counts as explored, so the map shows no fog at all
                 if (revealedPng == null) { var all = new byte[size * size]; for (int i = 0; i < all.Length; i++) all[i] = 255; revealedPng = Util.Png.Encode(all, size, size, Util.Png.Format.Gray8, fast: true); }

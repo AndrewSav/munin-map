@@ -287,7 +287,9 @@ namespace MuninMap
 
             REVEAL_ALL = config.Bind("Markers", "reveal_all",
                 MuninConfig.REVEAL_ALL,
-                "Ignore the fog of war entirely: no black veil, render and show the whole world, every build, tree and marker. Testing only. "
+                // patches: TASK-1 (was: "Ignore the fog of war entirely: ... Testing only. ")
+                "Let each viewer turn on a Spoilers switch on the page (left bar, Settings; off by default). With it on: no black veil, "
+                + "the whole world, every build, tree and marker, and the places the game has planned but not built yet. With it off the map looks as without this setting. "
                 + "The full world at 1 m/px is ~6400 tiles and renders on demand as people browse.").Value;
 
             SHOW_LAST_SEEN_POSITION = config.Bind("User", "show_last_seen_position",

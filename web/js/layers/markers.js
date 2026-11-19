@@ -8,6 +8,7 @@ import { iconSvg, colors } from '../icons.js';
 import { getJSON, on } from '../net.js';
 import { MarkerCanvas } from './markercanvas.js';
 import { layerState } from '../layerstate.js';
+import { spoilerPopup } from '../spoilers.js';   // patches: TASK-1
 
 export const LOCATION_CATS = ['spawn', 'boss', 'trader', 'dungeon', 'camp', 'village', 'ruin', 'runestone', 'poi'];
 
@@ -328,5 +329,6 @@ function popupHtml(m, set) {
   else if (m.cat === 'tombstone') extra = `<small>${m.when ? new Date(m.when / 10000 - 62135596800000).toLocaleString() : ''}</small>`;
   else if (m.prefab) extra = `<small>${escape(m.prefab)}${m.placed === false ? ' · not yet generated' : ''}</small>`;
   else if (m.description) extra = `<small>${escape(m.description)}</small>`;
+  extra = spoilerPopup(m, extra);   // patches: TASK-1
   return `<b>${escape(m.label || (m.cat === 'tablepin' ? 'Map pin' : ''))}</b><small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;
 }
