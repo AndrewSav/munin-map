@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-18T09:50:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-19T22:00:00Z'
 labels:
   - plugin
   - web
@@ -26,7 +26,7 @@ The user's current questions:
 2. **Pin editing has no authentication.** With pin editing enabled (`web_pins`), anyone who can open the page can add, move or delete pins, and there is no setting to require a login or a token for it.
 3. **What does the admin token do?** The plugin has a token (`announce.token` in the map's data folder appears to be one). Find out what it unlocks, how it is passed (an API call, a page setting), where it is documented, and whether it could also protect pin editing.
 
-This is a review first. Record the findings and a proposal in this task and agree it with the user before changing anything. Changes to how authentication works would touch upstream code and could be worth offering upstream.
+This is a review first. Record the findings and a proposal in this task and agree it with the user before changing anything. Changes to how authentication works would touch upstream code, so keep them rebase-friendly per decision-2.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
