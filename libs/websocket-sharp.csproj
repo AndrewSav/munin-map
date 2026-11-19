@@ -1,0 +1,39 @@
+<!-- patches: TASK-5. Builds websocket-sharp from source (fork only, see PATCHES.md and
+     backlog TASK-5) instead of the prebuilt libs/websocket-sharp.dll upstream commits.
+
+     The source is the git submodule libs/websocket-sharp, pinned to sta/websocket-sharp
+     a260fe1: the old DLL is a Debug build of exactly that code (checked by decompiling both).
+     websocket-sharp's own project file is an old-style .NET 3.5 project that dotnet build
+     can't build, so this one compiles its sources with its own settings: net35, DEBUG defined,
+     optimisation off, its own signing key. The output is websocket-sharp.dll in the referencing
+     project's output folder, as the committed DLL was, so ILRepack still merges it into the
+     single MuninMap.dll (src/ILRepack.targets). -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>websocket-sharp</AssemblyName>
+    <RootNamespace>WebSocketSharp</RootNamespace>
+    <WsSource>$(MSBuildThisFileDirectory)websocket-sharp\websocket-sharp\</WsSource>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultItems>false</EnableDefaultItems>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- its AssemblyInfo.cs has a 1.0.2.* version, which a deterministic build refuses -->
+    <Deterministic>false</Deterministic>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG</DefineConstants>
+    <DebugType>none</DebugType>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(WsSource)websocket-sharp.snk</AssemblyOriginatorKeyFile>
+    <LangVersion>latest</LangVersion>
+    <NoWarn>$(NoWarn);CS0618;CS0612;CS1591;CS0414;CS0168;CS0219;CS0649;CS0169</NoWarn>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(WsSource)**\*.cs" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+  <Target Name="WebSocketSharpSourceCheck" BeforeTargets="BeforeBuild;CollectPackageReferences">
+    <Error Condition="!Exists('$(WsSource)WebSocket.cs')"
+           Text="websocket-sharp's source is missing (the git submodule libs/websocket-sharp). Run: git submodule update --init" />
+  </Target>
+</Project>

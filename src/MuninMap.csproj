@@ -47,7 +47,7 @@
     <Reference Include="UnityEngine.JSONSerializeModule"><HintPath>..\libs\valheim\UnityEngine.JSONSerializeModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Splatform"><HintPath>..\libs\valheim\Splatform.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="steamworks"><HintPath>..\libs\valheim\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
-    <Reference Include="WebsocketSharp"><HintPath>..\libs\websocket-sharp.dll</HintPath></Reference>
+    <ProjectReference Include="..\libs\websocket-sharp.csproj" /><!-- patches: TASK-5 (was: Reference to ..\libs\websocket-sharp.dll) -->
     <Reference Include="System.IO.Compression" />
     <!-- lossless WebP tiles (Apache-2.0); merged into MuninMap.dll with its helper DLLs (ILRepack.targets) -->
     <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
