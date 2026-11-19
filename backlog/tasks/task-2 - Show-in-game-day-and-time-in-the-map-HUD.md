@@ -4,6 +4,7 @@ title: Show in-game day and time in the map HUD
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:09:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - plugin
   - web
@@ -34,4 +35,5 @@ The game's clock is rescaled: the daylight part of the day maps to day fractions
 - [ ] #8 A world or mod with a non-default day length is respected
 - [ ] #9 The chip is empty and hidden while the page is disconnected, and when the server sends no time (an older plugin)
 - [ ] #10 No new config option; the stats panel day tile is unchanged; existing server payloads only gain fields, none change
+- [ ] #11 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

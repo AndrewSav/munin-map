@@ -13,9 +13,12 @@ change fits the codebase:
 - Never reformat, reorder or tidy upstream lines you don't need to change. Leave
   `CHANGELOG.md` and version numbers alone.
 - Git is the record of what the fork touches. Upstream files changed, and the tasks behind one:
-  `git diff --stat <release>..patches -- . ':!backlog' ':!patches-tools' ':!CLAUDE.md'`
+  `git diff --stat <release>..patches -- . ':!backlog' ':!patches-tools' ':!CLAUDE.md' ':!PATCHES.md'`
   `git log --format=%s <release>..patches -- <file>`
   (`<release>`: the upstream tag `patches` sits on, e.g. `git describe --tags --abbrev=0 upstream/main`).
+- Keep `PATCHES.md` (the register of product changes from upstream) up to date: every product
+  change gets an entry before its task is Done, and the entry changes when the change does.
+  Tooling (local test server, CI, backlog) stays out of it.
 - After resolving a rebase conflict, reshape our code so that spot is less likely to conflict
   again.
 

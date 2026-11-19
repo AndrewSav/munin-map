@@ -1,10 +1,11 @@
 ---
 id: TASK-1
 title: 'Spoiler toggle: the whole world and planned locations, when reveal_all is on'
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-11-18T03:09:00Z'
-updated_date: '2026-11-19T10:23:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - plugin
   - docs
@@ -56,7 +57,38 @@ Write it per decision-2: new behaviour in new files, small marked edits in upstr
 - [ ] #11 The `reveal_all` entry in `docs/ADVANCED.md` and the setting's description in `src/Config.cs` describe the toggle and its spoilers, drop "Testing only" (nothing technical limits it to testing), and keep the note that tiles for unexplored ground render as people browse, so map data grows with use
 - [ ] #12 The left bar's per-layer counts, its click-to-cycle ("go to the next one") and the Markers panel's lists and search use exactly the markers currently shown: with the toggle off they match the normal view, so no count, jump or search result gives a spoiler away; with it on they include planned locations, and flipping the toggle starts the cycling again from the first marker
 - [ ] #13 Written per decision-2: new behaviour in new files, upstream edits marked where the format allows, and every commit subject starts with TASK-1
+- [ ] #14 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Approach: with reveal_all on, the server keeps sending everything, as upstream reveal_all does. The page already applies the fog itself: the veil over the 2D canvas, the patched 3D terrain, and the tiles composed with the mask, all driven by data/fog.png. So the toggle only has to (a) choose which fog image the page gets and (b) filter, in the page, the things that are drawn above the fog or exist apart from it.
+2. Server, new file src/Patches/Spoilers.cs:
+   - per-request flag from a cookie (munin_spoilers=1), meaningful only when reveal_all is on;
+   - planned-location helpers.
+   Marked one-line hooks in upstream files:
+   - MapDataServer.Route sets the request flag.
+   - Fog.Png serves the all-clear mask only when spoilers are requested, else the real explored mask.
+   - Markers.Shown also accepts unplaced locations when reveal_all is on.
+   - Markers.Location writes placed:false (and, for unique locations such as traders, the number of candidate sites).
+   - MixAt adds the placed state to the set signature, so a site that gets built is rewritten.
+3. Page, new file web/js/spoilers.js:
+   - the toggle (shown only when config.reveal_all; off by default; remembered per browser);
+   - the cookie;
+   - when off, the real explored mask, decoded once, with explored(x,z) and anyExplored(chunk), the same rule the server uses;
+   - filters for marker sets (drop placed:false and anything off explored ground) and for chunk lists (vegetation, structures, ruins, 3D objects).
+   Marked one-line hooks:
+   - data.js: the markers store keeps the raw sets and emits filtered ones, so counts, cycling, the Markers panel and search follow; plus the chunk index and region pack loads;
+   - ruins.js: its index;
+   - ui.js: the toggle row;
+   - biome hover and region labels: skip unexplored;
+   - markers.js popup: "one of N possible sites".
+4. Flipping the toggle: set the cookie, refresh the fog (FogLayer.refresh and the 3D refreshFog), re-emit the filtered markers, and reset and reload the chunk stores. No page reload.
+5. Docs: the reveal_all entry in docs/ADVANCED.md and in src/Config.cs.
+6. Test on the local test server (its pulled settings already have reveal_all = true): toggle off against a reveal_all=false run, toggle on, planned locations and traders, flipping both ways, 2D and 3D.
+Trade-off: with the toggle off, the page still downloads tiles and chunks for unexplored ground, hidden under the veil, and the server renders those tiles on demand. That is the same load reveal_all has today, not more.
+<!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
 

@@ -4,6 +4,7 @@ title: Investigate tooltips for colour-coded map objects (plants, mushrooms, ore
 status: To Do
 assignee: []
 created_date: '2026-11-18T09:40:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - web
 dependencies: []
@@ -30,4 +31,5 @@ This is an investigation first; it may or may not end in a change. Find out how 
 - [ ] #3 If implemented: hovering over any colour-coded object shows what it is, in the views where those objects are drawn
 - [ ] #4 If implemented: when objects overlap under the pointer, the tooltip shows all of them, not just the top one
 - [ ] #5 If implemented: hovering stays smooth on the densest parts of the copied live world
+- [ ] #6 If implemented: `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->

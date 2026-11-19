@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-18T09:50:00Z'
+updated_date: '2026-11-19T10:31:00Z'
 labels:
   - plugin
   - web
@@ -34,4 +35,5 @@ This is a review first. Record the findings and a proposal in this task and agre
 - [ ] #2 Everything a visitor can change without credentials is listed (pins, base names, anything else), with the settings that turn each on or off
 - [ ] #3 What the admin token does is written down: what it unlocks, how it is created and passed, where it is documented, and whether it could protect pin editing too
 - [ ] #4 The findings and a proposal are recorded in the task notes and agreed with the user (or the user decides to leave things as they are) before any change starts
+- [ ] #5 If implemented: `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
