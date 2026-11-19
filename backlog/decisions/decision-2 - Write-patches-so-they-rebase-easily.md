@@ -29,4 +29,4 @@ How easily a change will rebase is the first consideration when writing it, ahea
 
 - Most of a feature lives in files upstream never sees. Conflicts, when they happen, are limited to a few marked lines.
 - Some features end up less integrated than an upstream author would write them, for example a hook and a separate file instead of an inline change. That is the accepted price.
-- A feature that can only be done by changing upstream code widely is expensive to carry. It is worth offering upstream as a pull request instead.
+- A feature that can only be done by changing upstream code widely is expensive to carry, at every rebase. Weigh that cost before taking it on.
