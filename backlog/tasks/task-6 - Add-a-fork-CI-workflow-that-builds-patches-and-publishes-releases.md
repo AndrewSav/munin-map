@@ -4,7 +4,7 @@ title: Add a fork CI workflow that builds patches and publishes releases
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:46:00Z'
-updated_date: '2026-11-19T23:20:00Z'
+updated_date: '2026-11-19T23:25:00Z'
 labels:
   - build
   - ci
@@ -28,7 +28,7 @@ How GitHub Actions triggers fit: `push` and tag triggers run the workflow file f
 
 Upstream's `release.yml` (workflow name "Build") is on `patches` too, since the branch contains upstream. It reacts to pushes to `main`, `v*` tags, pull requests and its own Run workflow button. It would fail once websocket-sharp comes from a submodule (TASK-5, done), because it checks out without submodules. It has been disabled in the fork's Actions settings (`gh workflow disable Build`, 2026-11-20): a repo setting, not a file change, so it never conflicts.
 
-Upstream's workflow shows how the build gets the game assemblies: SteamCMD with an anonymous login fetches the Valheim dedicated server (app 896660), and then `build.sh` runs. Like upstream's build, ours compiles against whatever dedicated server version is current on Steam, which may differ from the version the live server runs.
+Upstream's workflow shows how the build gets the game assemblies: SteamCMD with an anonymous login fetches the Valheim dedicated server (app 896660), and then `build.sh` runs. Like upstream's build, ours compiles against the dedicated server version current on Steam. That is also what live servers run in practice: Steam updates game clients automatically, and a client won't join a server on a different version, so servers follow the current build. Older builds can be downloaded (for example with DepotDownloader), but almost nobody does.
 
 The tag names, the rebase rules and the build's version stamp are set by decision-1.
 <!-- SECTION:DESCRIPTION:END -->
