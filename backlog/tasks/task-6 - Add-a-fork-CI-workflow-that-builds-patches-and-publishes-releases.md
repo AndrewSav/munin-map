@@ -4,10 +4,11 @@ title: Add a fork CI workflow that builds patches and publishes releases
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:46:00Z'
-updated_date: '2026-11-18T04:41:00Z'
+updated_date: '2026-11-19T10:59:00Z'
 labels:
   - build
   - ci
+milestone: Initial release
 dependencies: []
 references:
   - >-

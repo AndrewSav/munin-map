@@ -7,10 +7,11 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-18T04:38:00Z'
-updated_date: '2026-11-18T05:47:00Z'
+updated_date: '2026-11-19T10:59:00Z'
 labels:
   - testing
   - build
+milestone: Initial release
 dependencies: []
 references:
   - tools/docker-compose.test.yml

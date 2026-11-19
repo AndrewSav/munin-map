@@ -5,11 +5,12 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-18T03:09:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-19T10:59:00Z'
 labels:
   - plugin
   - docs
   - web
+milestone: Initial release
 dependencies: []
 type: feature
 ordinal: 1000
@@ -96,4 +97,9 @@ Trade-off: with the toggle off, the page still downloads tiles and chunks for un
 Checked 2026-11-19: nothing technical makes reveal_all "testing only". Tiles over unexplored ground are rendered only when a browser requests them (TileStore.RequestMissing); the overview zooms are prerendered for the whole world either way; terrain comes from the world generator, so ungenerated zones render fine. The only cost is CPU and disk growing with how much of the world people browse (whole world at max zoom about 6,400 tiles). The phrase is in docs/ADVANCED.md (settings table) and in the setting description in src/Config.cs.
 
 Checked 2026-11-19: web/js/ui.js cycles through s.markers of a set in server order (this.setAt per set id) and shows n = s.markers.length as the count; renderMarkers (Markers panel, search) uses the same sets. Both read the raw set lists, so any client-side spoiler filtering must happen before they see them.
+
+Server half built and tested on the local test server, 2026-11-19.
+- New src/Patches/Spoilers.cs. Marked hooks: MapDataServer.Route (per-request flag from the munin_spoilers cookie); Fog.Png (all-clear only when spoilers are requested); Markers.Shown (planned locations when reveal_all is on); Markers.Location (placed:false, sites for unique locations); Markers.MixAt (built state in the set signature).
+- Result: fog.png differs with and without the cookie. markers.json has bosses 30 (24 planned), mini-bosses 9 (9), dungeons 1519 (1407), landmarks 25 (25), camps 1285 (1189), traders 21 (20): Haldor built; Hildir and the Bog Witch with 10 candidate sites each, sites=10.
+- Upstream bug found: Fog.Save writes Fog.Png() to disk, and with reveal_all upstream Fog.Png() is the all-clear image. So running with reveal_all overwrites the saved explored record with "whole world explored", and turning reveal_all off later leaves the map fully revealed. That is a real technical reason behind "Testing only" (the earlier note saying there was none was wrong). The Fog.Png hook fixes it as a side effect: saving runs outside any spoiler request, so it writes the real mask. Recovery for a world already affected: stop the server and delete the world's fog.png and fog.grid in Munin's data folder. Munin rebuilds the explored record from the zones players have visited, map tables and traces (coarser than before). Seen on the test server: exploredCells was 4194304 (all), and 43358 (about 2%) after the reset.
 <!-- SECTION:NOTES:END -->

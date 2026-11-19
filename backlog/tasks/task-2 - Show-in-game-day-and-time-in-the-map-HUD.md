@@ -4,10 +4,11 @@ title: Show in-game day and time in the map HUD
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:09:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-19T10:59:00Z'
 labels:
   - plugin
   - web
+milestone: Initial release
 dependencies: []
 type: feature
 ordinal: 2000
