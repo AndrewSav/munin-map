@@ -4,7 +4,7 @@ title: Vehicle labels disappear when zoomed out near clusters of other objects
 status: To Do
 assignee: []
 created_date: '2026-11-18T08:27:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-19T11:34:00Z'
 labels:
   - web
 dependencies: []
@@ -33,3 +33,9 @@ The local test server (`patches-tools/local-test/`) with the copied live world i
 - [ ] #5 Labels of other marker kinds behave as before, unless the agreed fix says otherwise
 - [ ] #6 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Lead found while testing TASK-1, 2026-11-20 (not yet confirmed for vehicles). The marker canvas (web/js/layers/markercanvas.js) gives labels at every zoom only to the always-labelled kinds: spawn, boss altars, traders, mini-boss lairs (the always flag set in web/js/layers/markers.js). Every other marker, vehicles included, gets a label only from zoom 5 (LABEL_ZOOM), only if it is not grouped with neighbours within 22 px (GROUP_PX, the q.n === 1 checks), and only if its label does not overlap a label already placed (fits()). The always-labelled ones claim their space first. So near a cluster a vehicle loses its label to the collision check or to grouping, which matches the symptom. The same rule hides the Forge of Potential's label in the TASK-1 spoiler view: landmarks are not always-labelled, and many more altars and traders claim space first there. Consider both together when proposing the fix: vehicles, and possibly landmarks, as always-labelled, against the extra clutter that adds.
+<!-- SECTION:NOTES:END -->
