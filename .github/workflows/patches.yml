@@ -1,0 +1,106 @@
+# patches: TASK-6. The fork's build and releases (fork only; upstream's own release.yml is disabled
+# in the fork's Actions settings). Scripts it runs live in patches-tools/ci/.
+#
+#   push to patches          build only: a rebase that breaks the build shows up as a failed run
+#   push a patches-X.Y.Z-N tag   build and publish that release (the tag's message is its notes)
+#   Run workflow (patches)   work out the next patches-X.Y.Z-N tag, create and push it, then build
+#                            and publish it here (a tag pushed with this run's token starts no new run)
+#
+# Releases carry fixed asset names, so
+#   https://github.com/<owner>/<repo>/releases/latest/download/MuninMap.zip
+# is always the newest build. Tag rules and the version stamp: backlog decision-1.
+name: Fork build and release
+
+on:
+  push:
+    branches: [patches]
+    tags: ['patches-*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fork-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: true        # websocket-sharp's source (TASK-5)
+          fetch-depth: 0          # the tags and history the release notes are worked out from
+
+      - name: Which release
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            [ "${{ github.ref }}" = "refs/heads/patches" ] || { echo "::error::run it on patches"; exit 1; }
+            bash patches-tools/ci/release-tag.sh next | tee -a "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            bash patches-tools/ci/release-tag.sh check "${{ github.ref_name }}" | tee -a "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache the dedicated server assemblies
+        uses: actions/cache@v5
+        with:
+          path: valheim-managed
+          key: fork-valheim-managed-${{ github.run_number }}
+          restore-keys: fork-valheim-managed-
+
+      - name: Fetch the dedicated server with SteamCMD
+        run: bash patches-tools/ci/fetch-server.sh valheim-managed
+
+      - name: Build and package
+        env:
+          # the version information the plugin carries (decision-1); empty for a plain build
+          InformationalVersion: ${{ steps.rel.outputs.stamp }}
+          IncludeSourceRevisionInInformationalVersion: 'false'
+        run: |
+          bash build.sh --managed "$GITHUB_WORKSPACE/valheim-managed"
+          cd dist
+          mv MuninMap-*.zip MuninMap.zip
+          sha256sum MuninMap.zip > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Check the version stamp
+        if: steps.rel.outputs.release == 'true'
+        run: |
+          # the informational version: UTF-8 in the assembly's metadata, UTF-16 in its version resource
+          dll=dist/pkg/plugins/MuninMap/MuninMap.dll
+          { strings -a "$dll"; strings -a -el "$dll"; } | grep -F "${{ steps.rel.outputs.stamp }}" \
+            || { echo "::error::MuninMap.dll does not carry ${{ steps.rel.outputs.stamp }}"; exit 1; }
+
+      - name: Push the new tag
+        if: github.event_name == 'workflow_dispatch'
+        run: git push origin "refs/tags/${{ steps.rel.outputs.tag }}"
+
+      - name: Publish the release
+        if: steps.rel.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.rel.outputs.tag }}"
+          # the tag as it is on the remote: a checkout can leave a pushed tag without its message
+          [ "${{ github.event_name }}" = "workflow_dispatch" ] || git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
+          git tag -l --format='%(contents)' "$tag" > notes.md
+          [ -s notes.md ] || echo "Munin Map ${{ steps.rel.outputs.version }} with this fork's changes (see PATCHES.md)." > notes.md
+          gh release create "$tag" dist/MuninMap.zip dist/SHA256SUMS --title "$tag" --notes-file notes.md --latest --verify-tag
+
+      - name: Keep the zip as a workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: MuninMap-${{ steps.rel.outputs.tag || github.sha }}
+          path: |
+            dist/MuninMap.zip
+            dist/SHA256SUMS

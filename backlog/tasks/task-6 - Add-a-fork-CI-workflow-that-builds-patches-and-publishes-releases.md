@@ -1,10 +1,11 @@
 ---
 id: TASK-6
 title: Add a fork CI workflow that builds patches and publishes releases
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-11-18T03:46:00Z'
-updated_date: '2026-11-19T23:25:00Z'
+updated_date: '2026-11-19T23:32:00Z'
 labels:
   - build
   - ci
@@ -47,8 +48,20 @@ The tag names, the rebase rules and the build's version stamp are set by decisio
 - [ ] #10 A release can also be started with the workflow's Run workflow button (workflow_dispatch) on `patches`: the workflow works out the next `patches-X.Y.Z-N` tag (X.Y.Z from `package/manifest.json`, N one more than the highest existing tag for that X.Y.Z, else 1), creates it as an annotated tag whose message lists the task IDs from the commit subjects since the previous `patches-*` tag, pushes it, and publishes the release exactly as a pushed tag would
 <!-- AC:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. New .github/workflows/patches.yml: on push to patches (build only), on patches-* tags (check, build, publish) and workflow_dispatch on patches (next tag, build, push the tag, publish in the same run, because a tag pushed with the run's own token starts no new run).
+2. patches-tools/ci/release-tag.sh: check <tag> (format and X.Y.Z against package/manifest.json) and next (the next N; an annotated tag listing the task IDs since the previous patches-* tag, or all of them when that tag is not on the branch). Prints tag, version and stamp.
+3. patches-tools/ci/fetch-server.sh: SteamCMD fetch of the dedicated server's managed assemblies (as in upstream's release.yml), with the same cache.
+4. The build runs upstream's build.sh with InformationalVersion=X.Y.Z+patches.N in the environment; MSBuild picks it up, so no upstream file changes. The zip is renamed MuninMap.zip, with SHA256SUMS. gh release create publishes it as latest, not a pre-release.
+5. Test the scripts in a Linux container, then on GitHub: a push build, a Run workflow release, and a mismatched tag that must fail before building.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-20: upstream's Build workflow (release.yml, id 424321336) disabled in the fork with gh workflow disable Build; gh workflow list now shows it disabled_manually. It had never run in the fork. The fork's default branch is now patches.
+
+Tested in mcr.microsoft.com/dotnet/sdk:8.0, 2026-11-20: check patches-3.4.0-1 gives stamp 3.4.0+patches.1; check patches-9.9.9-1 and check v3.4.0 fail with ::error before anything builds; next creates patches-3.4.0-1 with the notes "Tasks: TASK-1 TASK-2 TASK-5" plus their commit subjects, and then patches-3.4.0-2 with plain notes (the empty task list no longer trips set -e). build.sh with InformationalVersion=3.4.0+patches.1 in the environment gives a MuninMap.dll carrying 3.4.0+patches.1 in both the metadata and the version resource. Not yet run on GitHub.
 <!-- SECTION:NOTES:END -->
