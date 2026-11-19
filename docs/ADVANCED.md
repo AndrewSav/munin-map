@@ -57,7 +57,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Sweep | `sweep_interval` | 120 | seconds between walks over the world's objects |
 | Sweep | `zdos_per_frame` | 3000 | objects looked at per game frame, at most |
 | Sweep | `frame_ms` | 4 | milliseconds of each game frame a walk may use while players are on |
-| Markers | `reveal_all` | false | no fog at all: the whole world is shown and sent out. Testing only |
+| Markers | `reveal_all` | false | adds a **Spoilers** switch to the page (left bar, Settings), off by default for each viewer. With it on: no fog, the whole world, and the places the game has planned but not built yet. Tiles for unexplored ground render as people browse, so the map data grows |
 | Models | `export_models` | true | export the game's models for 3D |
 | Models | `object_categories` | piece,other,rock,bush,tree | what the 3D view and export get |
 | Models | `use_textures` | true | textures on 3D models (off: flat colours) |
@@ -255,5 +255,5 @@ restart needed. (A copy of the page is also built into the DLL, used when the
 * `docker compose -f tools/docker-compose.demo.yml up -d --build`: the same
   as a small public demo site. No game files inside.
 * `tools/docker-compose.test.yml`: a real dedicated server in Docker with a
-  copy of your world. Set `reveal_all = true` in its config to see the whole
-  map.
+  copy of your world. Set `reveal_all = true` in its config and turn on
+  Spoilers in the page's Settings to see the whole map.<!-- patches: TASK-1 -->

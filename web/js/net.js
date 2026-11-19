@@ -6,6 +6,8 @@
 //   pin {...}   rmpin {id}   reload
 // The bus fans each frame out to listeners by its `t`.
 
+import { spoilerJSON } from './spoilers.js';   // patches: TASK-1
+
 const listeners = new Map();
 let ws = null, backoff = 1000, closedByUs = false;
 export const state = { connected: false, config: null, worldRev: 0 };
@@ -56,7 +58,7 @@ export function fetchEarly(path, opts) {
 export async function getJSON(path, opts) {
   const r = await fetchEarly(path, Object.assign({ cache: 'no-cache' }, opts));
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  return spoilerJSON(path, await r.json());   // patches: TASK-1 (was: return r.json())
 }
 
 export async function getBuffer(path, opts) {
