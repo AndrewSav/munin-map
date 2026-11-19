@@ -330,6 +330,7 @@ namespace MuninMap.Live
             j.Prop("count", shown);
             j.Prop("ts", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());   // when these positions were taken: the page plays them back on this clock
             if (hasWorldWind) j.Prop("windDeg", worldWind.windDeg, 0);
+            Patches.WorldClock.Write(j);   // patches: TASK-2
             j.Key("players").BeginArray();
             foreach (var s in current)
             {

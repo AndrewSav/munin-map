@@ -21,6 +21,7 @@ import { MeasureTool, setSpeeds } from './measure.js';
 import { chunks, objects, prefabs, markers, stats } from './data.js';
 import { Sidebar, newerVersion } from './ui.js';
 import { BiomeHover } from './biomehover.js';
+import './clock.js';   // patches: TASK-2 (the clock chip and its Settings switch)
 
 const $ = (s) => document.querySelector(s);
 
