@@ -4,7 +4,7 @@ title: Show in-game day and time in the map HUD
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:09:00Z'
-updated_date: '2026-11-19T10:59:00Z'
+updated_date: '2026-11-19T21:18:00Z'
 labels:
   - plugin
   - web
@@ -32,9 +32,10 @@ The game's clock is rescaled: the daylight part of the day maps to day fractions
 - [ ] #4 The day number matches the stats panel's day tile
 - [ ] #5 The chip appears with the first live update after the page connects, even with nobody online
 - [ ] #6 The minutes advance at game speed: with the default 1800 s day, one game minute is about 1.25 real seconds
-- [ ] #7 After the players sleep through the night, the chip shows the morning within about a second
-- [ ] #8 A world or mod with a non-default day length is respected
-- [ ] #9 The chip is empty and hidden while the page is disconnected, and when the server sends no time (an older plugin)
-- [ ] #10 No new config option; the stats panel day tile is unchanged; existing server payloads only gain fields, none change
-- [ ] #11 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [ ] #7 A world or mod with a non-default day length is respected
+- [ ] #8 The chip is empty and hidden while the page is disconnected, and when the server sends no time (an older plugin)
+- [ ] #9 No new config option; the stats panel day tile is unchanged; existing server payloads only gain fields, none change
+- [ ] #10 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [ ] #11 While the players sleep, the clock follows the game's fast-forward to morning: it runs fast, updated at least every second, rather than stopping and jumping once the sleep is over, and it shows the morning within about a second of the game reaching it
+- [ ] #12 A "Clock" switch in the fork's Settings group (web/js/patches-settings.js, present whatever reveal_all is), off by default, shows or hides the chip without reloading the page; the choice is remembered in this browser across reloads (its own storage key, not upstream's)
 <!-- AC:END -->
