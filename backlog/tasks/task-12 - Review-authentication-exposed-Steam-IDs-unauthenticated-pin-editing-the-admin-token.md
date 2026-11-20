@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-18T09:50:00Z'
-updated_date: '2026-11-20T07:11:00Z'
+updated_date: '2026-11-20T20:32:00Z'
 labels:
   - plugin
   - web
@@ -137,6 +137,8 @@ Proposal agreed with the user, 2026-11-20:
 - access control is TASK-20 (require_auth with claimed players and a player token; enable_sweep_api, with the admin token still working; docs advice for long random tokens; base overrides recording who and when; GET /api/bases for the admin);
 - accepted as they are: the other privacy findings, no limit on failed token attempts, the client ID in URL queries, one person claiming several players, and cross-site requests with require_auth off. Chat pins and the existing web_* switches are unchanged.
 Related: TASK-16 (behind the reverse proxy), TASK-17 (builder names in popups), TASK-18 (the Discord online message includes the server password).
+
+Follow-up, 2026-11-21: TASK-19 was cut to the Steam IDs only. The player_activity setting was dropped: the public event feed and polling who is online give the same information.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
