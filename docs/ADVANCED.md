@@ -64,6 +64,22 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Models | `extract_meshes` | true | read locked meshes out of the game files (off: boxes) |
 | Models | `texture_max_size` | 512 | longest texture edge |
 | Models | `export_ms_per_frame` | 6 | game-thread milliseconds per frame for model export |
+| Server | `data_path` | | where the map keeps its data: a folder, absolute or under BepInEx. Empty: `BepInEx/config/MuninMap`. A map in the old place (`map_data` beside the plugin) is moved there once, when the new folder is empty |
+| Server | `preview_image` | | picture for the link preview card (Discord and other apps): PNG, JPEG, WebP or GIF up to 8 MB, a path (under BepInEx if relative; `$VAR`, `%VAR%` and `~` expanded) or a URL |
+| Server | `preview_description` | | text on that card. Empty: "Live map of" and the title |
+| Server | `check_updates` | true | ask GitHub for the latest release a minute after start, then every 12 hours; a newer one is logged and marked on the page. Off: the server never contacts GitHub |
+| Server | `show_github_link` | true | the GitHub button in the page's top bar (with a dot when an update is out). Off hides the button only: the "Munin Map x.y.z is out" note still shows when `check_updates` finds one |
+| Server | `test` | false | test only: sends every location found by a Vegvisir or the like to all players, not just the finder |
+| User | `web_pings` | true | let the page ping the game (middle click, or Ping in the pin form): once every 10 s per address, 2 s between any two |
+| User | `hidden_players` | | character names, comma separated, any case, left off the live map and player count, the stats and player cards, the event feed and trails, and not named as a base's or portal's builder. Still named in Discord join and leave posts, the in-game leave message, and on their beds and tombstones |
+| Interval | `save_fog_texture_interval` | 30 | seconds between saves of the explored area (`fog.png`), when it changed |
+| Interval | `stats_save_interval` | 60 | seconds between saves of `stats.json` and the activity trails |
+| Texture | `texture_size` | 2048 | pixels across the legacy images (`/map`, `/structures`, `/forest`); also how an old `fog.png` with no `fog.grid` beside it is read. Probably don't change |
+| Texture | `pixel_size` | 12 | metres per pixel of those images (and of an old `fog.png`); also how finely explored ground is checked for missing close-zoom tiles at start. Probably don't change |
+| Render | `main_thread_rows_per_frame` | 24 | with `render_threads = 0`, or when the game refuses sampling off its thread: tile rows sampled per game frame (4 at least) |
+| Sweep | `first_sweep_delay` | 5 | seconds after the world loads before the first walk over its objects; buildings and structures are empty on the map until it has run |
+| Sweep | `second_sweep_delay` | 30 | seconds after the world loads for one extra walk, to catch what was still loading. 0 (or not more than `first_sweep_delay`) turns it off |
+| Debug | `perf_report` | false | every 5 minutes, log how much of the game thread each of Munin's jobs takes |
 
 ## Your own markers
 
