@@ -52,3 +52,14 @@ How it differs from upstream:
 - Upstream has no clock on the map. Off by default, because the game itself shows none.
 - The players update gains a `clock` field (world time, day length, day, time of day, night).
   Nothing existing changes. No new server settings.
+
+## TASK-19: Steam IDs left out of the public stats
+
+The public stats (`data/stats.json`) no longer give away players' Steam IDs. Nothing changes on
+the page: it finds players by name, as before.
+
+How it differs from upstream:
+- Upstream's public stats give each player a `key` of `<SteamID64>/<character name>`. Here the
+  public stats leave `key` out, the way upstream already leaves out `playerId`.
+- The stats Munin saves to disk keep the full key, so characters stay apart and existing stats
+  files load as before. No new settings.

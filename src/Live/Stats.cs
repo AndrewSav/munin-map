@@ -429,7 +429,8 @@ namespace MuninMap.Live
         private static void WritePlayer(JsonWriter j, PlayerStat s, bool full)
         {
             j.BeginObject();
-            j.Prop("key", s.key).Prop("name", s.name).Prop("firstSeen", s.firstSeen).Prop("lastSeen", s.lastSeen);
+            if (full) j.Prop("key", s.key);   // patches: TASK-19 (was: always; the key holds their Steam ID)
+            j.Prop("name", s.name).Prop("firstSeen", s.firstSeen).Prop("lastSeen", s.lastSeen);
             j.Prop("playtime", Math.Round(s.playtime), 0).Prop("sessions", s.sessions).Prop("deaths", s.deaths);
             j.Prop("distance", Math.Round(s.distance), 0).Prop("portalTrips", s.portalTrips).Prop("revealed", s.revealed);
             j.Prop("online", s.online);
