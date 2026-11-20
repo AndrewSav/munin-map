@@ -295,6 +295,7 @@ namespace MuninMap
             SHOW_LAST_SEEN_POSITION = config.Bind("User", "show_last_seen_position",
                 MuninConfig.SHOW_LAST_SEEN_POSITION,
                 "Show where offline players were last seen in the stats panel.").Value;
+            Patches.Access.Bind(config);   // patches: TASK-20
 
             string hidden = config.Bind("User", "hidden_players", "",
                 "Character names, comma separated, never shown on the map, in the stats or in the event feed (an admin, an alt).").Value;
@@ -439,6 +440,7 @@ namespace MuninMap
             config["latest_version"] = UpdateCheck.Latest;
             config["latest_url"] = UpdateCheck.LatestUrl;
             config["show_last_seen_position"] = SHOW_LAST_SEEN_POSITION;
+            Patches.Access.AddTo(config);   // patches: TASK-20
             config["reveal_all"] = REVEAL_ALL;
             config["models"] = EXPORT_MODELS;
 

@@ -80,6 +80,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Sweep | `first_sweep_delay` | 5 | seconds after the world loads before the first walk over its objects; buildings and structures are empty on the map until it has run |
 | Sweep | `second_sweep_delay` | 30 | seconds after the world loads for one extra walk, to catch what was still loading. 0 (or not more than `first_sweep_delay`) turns it off |
 | Debug | `perf_report` | false | every 5 minutes, log how much of the game thread each of Munin's jobs takes |
+| Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
 
 ## Your own markers
 
@@ -197,7 +198,7 @@ with a heightmap. Fog applies: nothing unexplored leaves the server. See
 | `/data/fog.png` | explored area |
 | `/config`, `/api/status` | settings for the page, drawing and sweep status |
 | `/map`, `/map.jpg` | the whole world as one image |
-| `POST /api/sweep` | walk the world now |
+| `POST /api/sweep` | walk the world now (with `enable_sweep_api = false`, only with the token) |
 | `POST /api/pin`, `POST /api/unpin`, `POST /api/base` | add or remove a pin, rename or hide a base |
 
 Need the token (`X-Announce-Token: <secret>`, from `announce.token` next to
