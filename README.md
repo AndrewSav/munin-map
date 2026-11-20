@@ -192,8 +192,9 @@ Every setting is listed in [docs/ADVANCED.md](https://github.com/cocopuff2u-gami
 
 ## Admin extras
 
-Make a file called `announce.token` in `BepInEx/config/MuninMap` with a secret
-word in it (one next to `MuninMap.dll` is moved there by itself). That secret lets you:
+Make a file called `announce.token` in `BepInEx/config/MuninMap` with a strong secret
+in it: a long randomly generated string, such as one from a password manager or
+`openssl rand -hex 32`, not a word (one next to `MuninMap.dll` is moved there by itself). That secret lets you:
 
 * **See the server's log** in the page: **Events**, then **Server log**, then enter the secret.
 * **Send a message** to everyone in game:
