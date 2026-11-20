@@ -420,6 +420,7 @@ namespace MuninMap
                     if (!PinRateOk(owner)) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
                     string name = MuninMap.CleanPinText(f.TryGetValue("name", out object no) ? no as string : null, 16);
                     if (name.Length == 0) name = "web";
+                    name = MuninMap.CleanPinText(Patches.Access.NameFor(req, name), 16);   // patches: TASK-20 (require_auth: the claimed player)
                     string id = MuninMap.PlacePin(owner, f.TryGetValue("type", out object to) ? to as string : "dot", name, new Vector3(x, 0, z), f.TryGetValue("text", out object txo) ? txo as string : "");
                     return Text(e, "{\"id\":\"" + id + "\"}", "application/json", nocache: true);
                 }
@@ -438,6 +439,7 @@ namespace MuninMap
                     if (float.IsNaN(x) || float.IsNaN(z) || Mathf.Abs(x) > half || Mathf.Abs(z) > half) return Text(e, "{\"error\":\"off the map\"}", "application/json", nocache: true, status: 400);
                     string name = MuninMap.CleanPinText(f.TryGetValue("name", out object no) ? no as string : null, 16);
                     if (name.Length == 0) name = "Someone";
+                    name = MuninMap.CleanPinText(Patches.Access.NameFor(req, name), 16);   // patches: TASK-20 (require_auth: the claimed player)
                     int wait = WebPing.Try(req.RemoteEndPoint?.Address?.ToString() ?? "?", x, z, name);
                     if (wait > 0) return Text(e, "{\"error\":\"wait\",\"wait\":" + wait + "}", "application/json", nocache: true, status: 429);
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
@@ -459,6 +461,7 @@ namespace MuninMap
                     bool hidden = f.TryGetValue("hidden", out object ho) && ho is bool hb && hb;
                     if (!PinRateOk(WebOwner(req, f))) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
                     Markers.SetBase(x, z, label, hidden);
+                    Patches.BaseEdits.Record(Patches.Access.Who(req), x, z, label, hidden);   // patches: TASK-20
                     BroadcastWorldRevision();
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
                 }

@@ -874,6 +874,7 @@ namespace MuninMap.World
                     string builder = Live.Stats.NameOfPlayerId(b.builder);
                     if (builder != null) j.Prop("by", builder);
                     if (ov != null && ov.label != null) j.Prop("renamed", true);
+                    if (ov != null && ov.label != null) Patches.BaseEdits.Write(j, ov.x, ov.z);   // patches: TASK-20 (renamedBy)
                     j.End();
                 }
             }
