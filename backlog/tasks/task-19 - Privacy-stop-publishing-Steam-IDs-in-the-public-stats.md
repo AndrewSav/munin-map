@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-20T05:40:00Z'
-updated_date: '2026-11-20T21:05:00Z'
+updated_date: '2026-11-20T22:22:00Z'
 labels:
   - plugin
   - web
@@ -54,6 +54,8 @@ Scope cut, 2026-11-21: a `player_activity` setting to hide the player card's Act
 Verified on the local test server (2026-11-21): 17 public responses (config, players, data/players.json, data/stats.json, events.json, events/older.json, pins.json, /pins, markers.json, hotspots.json, activity.json 3h/24h, building.json, structures/stats, vehicles, messages, structures/index.json) carry no 17-digit Steam ID and no `key` field. The saved stats.json on disk still has `key` = `<SteamID64>/AdMiN`, and the server loaded the existing file after the restart. The page code has no reference to a player's `key` (grep web/js); still to see in a browser: player card and players list.
 
 Player card and players list checked in the browser by the user on the test server (2026-11-21): as before.
+
+Correction, 2026-11-21: the scope-cut note above says TASK-20's require_auth is the real protection against polling. It is not: require_auth only gates actions, and everything readable (who is online, the event feed, stats) stays public. The user decided not to hide the map's data from strangers.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
