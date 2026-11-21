@@ -12,7 +12,7 @@ namespace MuninMap.Live
     // have spent in each 64 m zone and how many died there. Only players who share their position
     // on the map are recorded (the same rule as the live dots). One sample every 10 s: a few numbers
     // per player. The zone totals are kept in activity.txt beside the world's map data.
-    internal static class Activity
+    internal static partial class Activity   // patches: TASK-3 (partial: the trails kept across restarts, Patches/Trails.cs)
     {
         private const float Every = 10f;            // seconds between samples
         private const int TrailSeconds = 24 * 3600; // how far back a trail goes (the page asks for the last 3 or 24 hours)
@@ -169,6 +169,7 @@ namespace MuninMap.Live
             lock (sync)
             {
                 heat.Clear(); deaths.Clear(); heatBy.Clear(); trails.Clear(); cache.Clear();
+                LoadTrails(worldDir);   // patches: TASK-3 (after the clear; activity.txt missing returns early below)
                 try
                 {
                     if (!File.Exists(path)) return;
@@ -193,6 +194,7 @@ namespace MuninMap.Live
 
         public static void Save()
         {
+            SaveTrails();   // patches: TASK-3
             if (path == null || !dirty) return;
             var sb = new StringBuilder();
             lock (sync)

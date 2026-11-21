@@ -111,6 +111,7 @@ update.
 | `<world>/tiles/` | the drawn map |
 | `<world>/fog.png` | explored area |
 | `<world>/stats.json` | player and world stats |
+| `<world>/trails.txt` | player trails of the last 24 hours, so a restart keeps them |
 | `<world>/events.jsonl` | the events log |
 | `<world>/bases.json` | base names you set |
 | `<world>/markers.json` | your own markers (you make this one) |
