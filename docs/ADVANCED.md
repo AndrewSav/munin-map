@@ -277,6 +277,29 @@ CDN can never mix old and new files. Only the page itself (`/` and
 `/index.html`) must not be cached for long. Behind Cloudflare, bypass the
 cache for those two, or purge after each update.
 
+## Behind a reverse proxy<!-- patches: TASK-16 -->
+
+Munin serves plain HTTP on `server_port`. For HTTPS, put a TLS-terminating
+reverse proxy in front of it, at the root of its own host name (a sub-path
+hasn't been tried). The proxy needs:
+
+* **Everything forwarded as is:** the page, `/data/`, `/tiles/`, `/models/`,
+  `/icons/` and `/api/`, with no path rewriting.
+* **WebSocket upgrade on `/ws`.** Served over HTTPS, the page connects with
+  `wss://` by itself. The server sends an update every second even with nobody
+  online, so a normal idle timeout won't drop the connection, and the page
+  reconnects by itself after a server restart.
+* **`map_url` set to the public address**, so the link preview card and Discord
+  links use it. Without it, Munin builds the address from `X-Forwarded-Proto`
+  and `X-Forwarded-Host`, so the proxy must set those, replacing any the
+  visitor sent.
+* **Request sizes:** the requests Munin accepts carry small bodies. Pins, pings,
+  base names and claims are well under 1 KB, and an announcement
+  (`POST /announce`, admin only) is as long as the message.
+
+Keep Munin's own port closed to the outside, so it's reachable only through
+the proxy.
+
 ## Building from source
 
 How the project is laid out:
