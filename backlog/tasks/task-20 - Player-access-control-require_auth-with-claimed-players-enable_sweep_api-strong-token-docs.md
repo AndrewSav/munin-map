@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20T07:11:00Z'
-updated_date: '2026-11-21T03:48:00Z'
+updated_date: '2026-11-21T04:09:00Z'
 labels:
   - plugin
   - web
@@ -140,4 +140,6 @@ Naming, 2026-11-21: the shared secret for claiming is the "user key" (file `user
 Decided 2026-11-21: the "cross-site requests with require_auth off" limitation is dropped from the docs and criterion 13: it describes upstream behaviour (open actions are open), not a limitation of this change; with require_auth on, a cross-site page cannot know the Browser ID (browser storage, not a cookie), so its requests carry no claim.
 
 Decided 2026-11-21: the claiming limitation in the docs is one sentence, "Anyone with the user key can claim any character nobody has claimed yet." (it covers alts and one person claiming several). The admin alt-reservation example is removed: copied verbatim, its example ID would become a usable Browser ID for that alt, and it read as a how-to.
+
+require_auth=false pass with the final page code (2026-11-21, test server + headless Chrome): /config and data/claim.json report requireAuth false; pin keeps the typed name; ping without a Browser ID works (server log: web ping from "Typed"); sweep and /structures/refresh 202; unpin works. Page: pin form is upstream's (name field, "Pin key" box, "Use key", no claim block, buttons enabled); base popup has no Browser ID box or claim block, Rename/Hide enabled; middle-click prompts for a name once and posts {x,z,name} with no Browser ID; an anonymous rename is recorded as "web" and the popup shows no "Renamed by" (Auto name present); no "Claimed players" section even with the admin key stored.
 <!-- SECTION:NOTES:END -->
