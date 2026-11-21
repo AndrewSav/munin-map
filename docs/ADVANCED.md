@@ -83,6 +83,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Debug | `perf_report` | false | every 5 minutes, log how much of the game thread each of Munin's jobs takes |
 | User | `require_auth` | false | only claimed players may pin, ping or edit bases from the page, or ask for a sweep by API; see [Player access](#player-access) |
 | Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
+| Server | `show_seed` | false | show the world's seed in the stats panel's Server details, for seed-map websites. The seed reveals the whole world there (a spoiler); off, it is not sent at all. Players on the server can get it anyway: the game's `printseeds` console command (F5, with the `-console` launch option) prints it |
 
 ## Your own markers
 

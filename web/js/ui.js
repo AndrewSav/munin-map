@@ -11,6 +11,7 @@ import { RaidLayer } from './layers/raid.js';
 import { BiomeHover } from './biomehover.js';
 import { buildSettings } from './patches-settings.js';   // patches: TASK-1
 import { adminClaims } from './claims.js';   // patches: TASK-20
+import { seedLine } from './seed.js';   // patches: TASK-15
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -697,6 +698,7 @@ export class Sidebar {
       <dt>3D models</dt><dd>${prefabs.stats.exported ?? 0} prefabs${prefabs.stats.unreadable ? ` (${prefabs.stats.unreadable} unreadable)` : ''}${prefabs.stats.queued ? ` +${prefabs.stats.queued} queued` : ''}</dd>
       <dt>Munin Map</dt><dd>${escape(this.app.config?.version || '')}${s.latestVersion ? (newerVersion(s.latestVersion, this.app.config?.version || '') ? ` · <a href="${escape(s.latestUrl || '')}" target="_blank" rel="noopener">${escape(s.latestVersion)} is out</a>` : ' · up to date') : ''}</dd>
     </dl>`));
+    seedLine(p.lastElementChild, this.app.config);   // patches: TASK-15 (show_seed: the world's seed)
   }
 
   // The raids the world can have (the server sends the game's rules for each): can come now, not
