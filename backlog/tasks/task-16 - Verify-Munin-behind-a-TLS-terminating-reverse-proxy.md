@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20T01:17:00Z'
-updated_date: '2026-11-21T05:08:00Z'
+updated_date: '2026-11-21T05:22:00Z'
 labels:
   - plugin
   - web
@@ -54,4 +54,6 @@ Findings against the real deployment (2026-11-21; HTTPS at the proxy, plain HTTP
 - X-Forwarded-For: used only for one debug log line when a websocket opens (MapDataServer WebSocketHandler.OnOpen). Spoofing it changes nothing.
 - Found: the web ping limit (WebPing.Try, 10 s per visitor, 2 s between any two) is keyed by the connection's remote address (MapDataServer /api/ping). Behind a proxy every visitor has the proxy's address, so it becomes one ping per 10 s for everyone. Upstream behaviour; options under discussion with the user.
 - Note: TASK-19 and TASK-20 fixes confirmed on the deployment: no key field or Steam IDs in data/stats.json; an unclaimed pin is refused 403.
+
+Ping limit behind a proxy: fixed for require_auth in TASK-22 (per claimed player). Options weighed (2026-11-21): leave it; per claimed player (chosen); per X-Forwarded-For. Correction to the earlier discussion: X-Forwarded-For is trustworthy when Munin reads the entry the proxy added (the last one, if the proxy appends to a client-sent header) and Munin is only reachable through the proxy; it was not chosen because it depends on that setup. With require_auth off, the limit stays shared by all visitors behind a proxy (to be noted in the docs).
 <!-- SECTION:NOTES:END -->
