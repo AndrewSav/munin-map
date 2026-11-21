@@ -1,6 +1,5 @@
 # Local test server
 
-A local Valheim dedicated server in Docker running a copy of the live world with
 the Munin Map build from this checkout. Use it to test a change before it goes to the live
 server, where every deploy means a restart.
 
@@ -103,6 +102,51 @@ difference. To catch up, run `update.ps1`. If the base image differs, first chan
 5. Waits for "Game server connected" and for the map to answer, timing each step, then
    compares the versions with live.
 
+## A fully generated world
+
+A copy of live only has the zones live players have been to. For work that needs the rest
+(Mistlands, Ashlands, Deep North, or comparing against every zone), there is a snapshot of
+the same world with every zone generated, in
+`data/snapshots/<world>-generated-<date>/` (git ignores `data/`).
+
+**Use it:**
+
+```powershell
+docker compose -f patches-tools\local-test\compose.yml stop
+$w = ((Get-Content patches-tools\local-test\.env | Select-String '^WORLD_NAME=').Line -split '=', 2)[1].Trim('"')
+Remove-Item "patches-tools\local-test\data\config\worlds_local\$w" -Recurse -Force
+Copy-Item "patches-tools\local-test\data\snapshots\$w-generated-2026-11-22" "patches-tools\local-test\data\config\worlds_local\$w" -Recurse
+.\patches-tools\local-test\deploy.ps1 -NoBuild
+```
+
+**Go back to live:** run `pull-save.ps1` as usual. It replaces only `worlds_local`, so the
+snapshot stays.
+
+The generated world is much bigger than the live copy: about 4.1 million objects instead of
+about 270 thousand, about 150 MB on disk. It loads in under a minute, and a manual save takes
+about 17 s. Munin's sweeps and drawing have a lot more to do on it.
+
+**How it was made** (2026-11-22, Valheim 1.0.21), in case it needs doing again:
+
+1. Upgrade World 1.87 and its dependency Server Devcommands (both by JereKuusela, from
+   Thunderstore) went into `data/config/bepinex/plugins` and into the admin's own client. The
+   admin's Steam ID went into `data/config/adminlist.txt`.
+2. Munin was switched off for the run: its DLL moved out of `data/config/bepinex/plugins`, and
+   the copy inside the server deleted (the start copies DLLs in but never deletes them).
+   `deploy.ps1` puts it back.
+3. The
+   console only updates when reopened; `verbose` switches the progress to a zone count, and
+   the server log has it too.
+4. 329 zones failed. Upgrade World gives up on a zone after 10 s without success, and some
+   location types (frost caves, `MorkBorg` and others) take longer than that to load their
+   files the first time. A second `zones_generate` with a local build of Upgrade World that
+   waits 120 s instead generated all 329 in 17 minutes. The game's own generation has no such
+   limit, so live is not affected.
+5. `save` in the console, a clean stop, and a copy of `worlds_local/<world>` to `data/snapshots/`.
+6. The two mods came off the server and the client again.
+
+Upgrade World's `biomes=`, `min=` and `max=` limit a run to part of the world.
+
 ## How the test server differs from live
 
 It matches live in the game build, BepInEx pack, base image, user ID, world, world modifiers
@@ -113,7 +157,6 @@ and Munin settings. It changes these:
 | Starts the game directly (`image/fast-start.sh`) | about 35 s saved per start |
 | Updates only when `update.ps1` runs | part of the fast start; `deploy.ps1` warns when versions differ |
 | Server files on the `munin-test_server` volume | about 9 s faster to load than from a Windows drive |
-| Named `<world> test`, not public, no password | ports are bound to 127.0.0.1, so only the local machine can connect |
 | Crossplay off | with crossplay the server takes no inbound UDP, so it can't be joined by IP |
 | No backups, scheduled restarts or status page | test only; the status page also needs a public server |
 | `STEAMCMD_ARGS` empty | re-checking every server file through a Windows-drive mount took ~38 s |
