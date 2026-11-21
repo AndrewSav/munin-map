@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20T07:11:00Z'
-updated_date: '2026-11-20T23:23:00Z'
+updated_date: '2026-11-21T03:48:00Z'
 labels:
   - plugin
   - web
@@ -28,16 +28,16 @@ ordinal: 19000
 <!-- SECTION:DESCRIPTION:BEGIN -->
 From TASK-12's findings. Today anyone who can reach the map can place pins and ping the game under any name, rename or hide any base (and a hidden base has no way back from the page), and trigger world sweeps without limit. A visitor can also invent a new key per request, which gets round the per-key limits. Before the map is exposed to the internet, the server should be able to require that these actions come from a known player. The design below was agreed with the user on 2026-11-20.
 
-**Admin token (docs only):** describe the admin token, and the new player token, as a strong secret, a long randomly generated string, instead of a "secret word". No complexity rules and no limit on attempts.
+**Admin token (docs only):** describe the admin token, and the new user key, as a strong secret, a long randomly generated string, instead of a "secret word". No complexity rules and no limit on attempts.
 
 **Sweep API:** a new setting `enable_sweep_api` (default true) turns `POST /api/sweep` and `/structures/refresh` on or off. When off, the admin token still works, as with `web_pins`, `web_pings` and `web_edit_bases`.
 
 **Player access:** a new setting `require_auth`, default false. When false, everything behaves exactly as now. When true, no action that changes something is available without a claimed player:
-- A **player token**, a secret like the admin token that the admin shares with their players, lets a browser **claim** an unclaimed player from the players Munin knows. The server records the browser's **key** against that player. The key is the browser's client ID, the value the pin popup already shows as the "pin key". One key per player: claiming a claimed player is refused.
+- A **user key**, a secret like the admin token that the admin shares with their players, lets a browser **claim** an unclaimed player from the players Munin knows. The server records the browser's **key** against that player. The key is the browser's client ID, the value the pin popup already shows as the "pin key". One key per player: claiming a claimed player is refused.
 - The claim belongs to the key. Another device of the same person enters the same key and acts as the same player, with no second claim. With `require_auth` on, the key is effectively the player's login.
 - The **admin can unclaim** a player in the players list, for example after a lost key, so the player can claim again.
 - With `require_auth` on, pins, pin removal, pings, base renames and hides, and `/api/sweep` and `/structures/refresh` refuse keys with no claim. The admin token is accepted as today. A pin's "by" and a ping's name are the claimed player's name, never free text.
-- **Pin and ping UI:** it still offers entering an existing key, as today. If the browser has no claim, it offers a dropdown of unclaimed players and a field for the player token, with a note that if your name isn't listed, you need to join the game server first (Munin only knows players it has seen online).
+- **Pin and ping UI:** it still offers entering an existing key, as today. If the browser has no claim, it offers a dropdown of unclaimed players and a field for the user key, with a note that if your name isn't listed, you need to join the game server first (Munin only knows players it has seen online).
 - **Bases:** the rename, hide and unhide UI gets the same claim flow. Base overrides record who renamed or hid a base and when, and a renamed base's popup names who renamed it. `GET /api/bases` (admin token) lists every override: name, coordinates, hidden or not, who hid or renamed it if known, and when it was last hidden and last renamed. There is no page list: unhiding stays `POST /api/base` with x and z plus the admin token.
 
 **Unchanged:** the existing switches keep their meaning: off means off for everyone except the admin token holder, and `require_auth` only adds the claim requirement on top. Chat pins (`!pin`, `!undopin`, `!deletepin`) stay as they are: the game has already authenticated the player.
@@ -47,24 +47,24 @@ From TASK-12's findings. Today anyone who can reach the map can place pins and p
 - the key travels in a URL query (`data/pins.json?client=`), so it can appear in proxy and server access logs, and whoever can read those can act as those players. Moving it to a header would add hunks in two busy upstream files for little benefit;
 - with `require_auth` off, other websites can still trigger the open actions through a visitor's browser, as today. With it on they can't, because the key is in browser storage, not a cookie.
 
-Do it in three parts, each its own commit under this task's ID: settings, docs and the sweep switch; claiming (player token, claim and unclaim, the claim checks, base override records, `GET /api/bases`); the UI.
+Do it in three parts, each its own commit under this task's ID: settings, docs and the sweep switch; claiming (user key, claim and unclaim, the claim checks, base override records, `GET /api/bases`); the UI.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 README and `docs/ADVANCED.md` describe the admin token and the player token as a strong secret, a long randomly generated string, not a "secret word"
+- [ ] #1 README and `docs/ADVANCED.md` describe the admin token and the user key as a strong secret, a long randomly generated string, not a "secret word"
 - [x] #2 `enable_sweep_api` (default true) is in the config with a description: when false, `/api/sweep` and `/structures/refresh` are refused unless the admin token is sent; when true they behave as today (subject to `require_auth`)
 - [ ] #3 `require_auth` (default false) is in the config with a description; with it false, every action and the whole UI behave exactly as upstream
-- [x] #4 A player token (a `player.token` file beside `announce.token`; none means claiming is closed) lets a browser claim one unclaimed known player; the server keeps the browser's key against that player, and refuses to claim a player that is already claimed, and a second claim from a key that already holds one
+- [x] #4 A user key (a `user.token` file beside `announce.token`; none means claiming is closed) lets a browser claim one unclaimed known player; the server keeps the browser's key against that player, and refuses to claim a player that is already claimed, and a second claim from a key that already holds one
 - [ ] #5 A second browser using the same key acts as the same claimed player, with no second claim
 - [ ] #6 The admin can unclaim a player from the players list (admin token), after which the player can be claimed again
 - [x] #7 With `require_auth` true, pin, unpin, ping, base rename, hide and unhide, `/api/sweep` and `/structures/refresh` refuse keys with no claim (the admin token is accepted as today), and a pin's "by" and a ping's name are the claimed player's name, never free text
 - [ ] #8 Base overrides record who renamed or hid a base and when; a renamed base's popup names who renamed it
 - [x] #9 `GET /api/bases` (admin token only) lists every base override: name, coordinates, hidden or not, who hid or renamed it if known, and when it was last hidden and last renamed
-- [ ] #10 With `require_auth` true, the pin and ping UI keeps the existing "Pin key" box, and, when the browser has no claim, offers a dropdown of unclaimed players plus a player token field, with a note that a player not listed must join the game server first; the free-text name is gone, and middle-click without a claim shows a toast pointing to right-click to claim
+- [ ] #10 With `require_auth` true, the pin and ping UI keeps the existing "Pin key" box, and, when the browser has no claim, offers a dropdown of unclaimed players plus a user key field, with a note that a player not listed must join the game server first; the free-text name is gone, and middle-click without a claim shows a toast pointing to right-click to claim
 - [ ] #11 With `require_auth` true, the base popup uses the same claim flow for rename, hide and unhide
 - [ ] #12 `web_pins`, `web_pings` and `web_edit_bases` keep their meaning (off for everyone except the admin token holder), and chat pins work as before
-- [ ] #13 The docs explain the player token, claiming, using your key in another browser, and asking the admin to unclaim a wrongly claimed player; and list the accepted limitations: one person can potentially claim several players; anyone with the player token can claim any unclaimed character; same-name characters on two accounts look alike; the key in URL queries and access logs; the key as a login; cross-site requests with require_auth off
+- [ ] #13 The docs explain the user key, claiming, using your key in another browser, and asking the admin to unclaim a wrongly claimed player; and list the accepted limitations: anyone with the user key can claim any unclaimed character; same-name characters on two accounts look alike; the key in URL queries and access logs; the key as a login
 - [ ] #14 Tested on the local test server with require_auth off (as upstream) and on (claim, actions, unclaim, a second device with the same key, refusals without a claim)
 - [ ] #15 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 - [ ] #16 Written per decision-2 in three parts (settings and docs; claiming; UI), each a commit starting with the task ID; new behaviour in new files, upstream edits marked where the format allows
@@ -76,14 +76,14 @@ Do it in three parts, each its own commit under this task's ID: settings, docs a
 Rebase shape (decision-2): almost all new behaviour in new files we own; upstream files get one marked hook line per spot.
 
 New files:
-- src/Patches/Access.cs: the require_auth / enable_sweep_api settings (Bind + client config), the player token (`player.token` beside `announce.token`, read and re-read like Announce.Token; none = claiming closed), the claims (per world, `claims.json` beside `bases.json`: a random salt, and per claim the Munin stats key, the key (client ID), the name, when), and one request hook `Handle(e, path, post)` that (a) serves the new endpoints and (b) refuses gated actions before upstream sees them. Responses written by its own small helper (MapDataServer's are private).
-  - New endpoints: `GET data/claim.json?client=` (this key's claim: name, or none; plus whether claiming is open), `GET data/claimable.json` (unclaimed, not hidden, known players: an opaque id = hash(salt + stats key), the name, first seen; same-name characters told apart by first seen), `POST api/claim` {id, token, client} (refused: wrong/no player token, player already claimed, key already holds a claim, unknown id), `POST api/unclaim` {name or id} (admin token), `GET api/claims` (admin token: every claim, for the page's admin list), and `GET api/bases` (see BaseEdits).
+- src/Patches/Access.cs: the require_auth / enable_sweep_api settings (Bind + client config), the user key (`user.token` beside `announce.token`, read and re-read like Announce.Token; none = claiming closed), the claims (per world, `claims.json` beside `bases.json`: a random salt, and per claim the Munin stats key, the key (client ID), the name, when), and one request hook `Handle(e, path, post)` that (a) serves the new endpoints and (b) refuses gated actions before upstream sees them. Responses written by its own small helper (MapDataServer's are private).
+  - New endpoints: `GET data/claim.json?client=` (this key's claim: name, or none; plus whether claiming is open), `GET data/claimable.json` (unclaimed, not hidden, known players: an opaque id = hash(salt + stats key), the name, first seen; same-name characters told apart by first seen), `POST api/claim` {id, token, client} (refused: wrong/no user key, player already claimed, key already holds a claim, unknown id), `POST api/unclaim` {name or id} (admin token), `GET api/claims` (admin token: every claim, for the page's admin list), and `GET api/bases` (see BaseEdits).
   - Gate, require_auth on: POST api/pin, api/unpin, api/ping, api/base, api/sweep and /structures/refresh need a key (X-Munin-Client, or `client` query) that holds a claim, or the admin token; else 403 "claim your player first". enable_sweep_api off: api/sweep and /structures/refresh need the admin token. With require_auth off and enable_sweep_api on, Handle passes everything through untouched.
   - `NameFor(req, name)`: with require_auth on and a claimed key, the claimed name (the body's name is ignored); else the name as given.
 - src/Patches/BaseEdits.cs: who last renamed and who last hid each overridden base, and when, per world in `bases-edits.json`: one record per override, not a history. Written alongside upstream's `bases.json` (whose format is left alone: its saver would drop extra fields). `Record(req, x, z, label, hidden)` after each change updates the record at that spot (matched by position within Markers' MATCH_RADIUS, as upstream matches overrides), and drops it when the base goes back to its automatic name (upstream drops the override). `Write(j, x, z)` adds `renamedBy` to a renamed base's marker. Who: the claimed name, "admin" for the admin token, else "web" (require_auth off: no identity).
   - `GET api/bases` (admin token) returns upstream's override list, read from `bases.json` (so no accessor in Markers.cs), each joined by position with its record: x, z, label, hidden, renamedBy, renamedAt, hiddenBy, hiddenAt; "unknown" where there is no record (edits from before this change).
 - web/js/claims.js: the page side. Reads data/claim.json for this browser's key and the config's require_auth.
-  - `pinForm(el, ctx)`: with require_auth on, swaps the free-text name input for a hidden one holding the claimed name ("as <name>"), so upstream's submit and Ping code send it unchanged. No claim: Add pin and Ping disabled, and a claim block: dropdown from data/claimable.json, a player token field, Claim, and the note that a player not listed must join the game server first. The existing "Pin key" box stays as it is (entering a key adopts its claim).
+  - `pinForm(el, ctx)`: with require_auth on, swaps the free-text name input for a hidden one holding the claimed name ("as <name>"), so upstream's submit and Ping code send it unchanged. No claim: Add pin and Ping disabled, and a claim block: dropdown from data/claimable.json, a user key field, Claim, and the note that a player not listed must join the game server first. The existing "Pin key" box stays as it is (entering a key adopts its claim).
   - `baseForm(el, m)`: the same claim block on the base popup when unclaimed (Rename/Hide/Auto name disabled until claimed); "renamed by <name>" on a renamed base's popup (any time `renamedBy` is there).
   - `ping(app, latlng)`: with require_auth on, handles middle-click: no claim -> toast "Right-click the map to claim your player first"; claimed -> POST api/ping with X-Munin-Client. Returns false when require_auth is off so upstream's webPing runs as before.
   - `adminClaims(panel)`: in the players panel, only with the admin key stored: a "Claimed players" list with Unclaim buttons (api/claims, api/unclaim).
@@ -96,7 +96,7 @@ Hooks in upstream files (each marked `// patches: TASK-20`):
 - web/js/app.js: import, and one line at the top of webPing.
 - web/js/ui.js: one call at the end of playersPanel.
 
-Docs: README and docs/ADVANCED.md: admin token and player token as a long random string; rows for require_auth, enable_sweep_api in the TASK-21 block; a short "Player access" section: setting up the player token, claiming, your key in another browser, claimed the wrong player -> ask the admin, the accepted limitations. PATCHES.md entry.
+Docs: README and docs/ADVANCED.md: admin token and user key as a long random string; rows for require_auth, enable_sweep_api in the TASK-21 block; a short "Player access" section: setting up the user key, claiming, your key in another browser, claimed the wrong player -> ask the admin, the accepted limitations. PATCHES.md entry.
 
 Commits (each "TASK-20: ..."): 1 settings, sweep switch and docs; 2 claims, gate, names, base edits, admin endpoints; 3 page UI.
 
@@ -134,4 +134,10 @@ Tested on the test server with 3 seeded characters (Ann, Bob x2 on two accounts)
 - Not yet: hidden_players left out of claimable; chat pins (need the game); the page (part 3).
 
 Criteria 5, 6 and 8 unchecked again: each also needs the page (second browser via the Pin key box; Unclaim in the players list; renamed-by in the base popup), done in part 3.
+
+Naming, 2026-11-21: the shared secret for claiming is the "user key" (file `user.token`), matching the page's "Admin key"; shown in clear like it. Docs call the browser's key the "Pin key" throughout. Earlier notes say "player token" / player.token for the same thing.
+
+Decided 2026-11-21: the "cross-site requests with require_auth off" limitation is dropped from the docs and criterion 13: it describes upstream behaviour (open actions are open), not a limitation of this change; with require_auth on, a cross-site page cannot know the Browser ID (browser storage, not a cookie), so its requests carry no claim.
+
+Decided 2026-11-21: the claiming limitation in the docs is one sentence, "Anyone with the user key can claim any character nobody has claimed yet." (it covers alts and one person claiming several). The admin alt-reservation example is removed: copied verbatim, its example ID would become a usable Browser ID for that alt, and it read as a how-to.
 <!-- SECTION:NOTES:END -->
