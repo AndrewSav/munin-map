@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-21T10:00:00Z'
+updated_date: '2026-11-21T21:56:04Z'
 labels:
   - plugin
   - web
@@ -33,7 +34,7 @@ What each one is (from the 1.0.21 game data and English text, not checked in gam
   - the helmets and swords give Copper and Iron Scrap.
 - **Black metal:** on other maps it marks a Fuling village. Munin already marks Fuling camps (`src/World/Markers.cs:447`), so nothing is missing there.
 
-The test world may not have generated Mistlands, Ashlands or Deep North zones yet: no `giant_*` appears in its kinds file. Checking these may need those zones generated on the test copy first. Only objects in generated zones are drawn; predicting ungenerated ones is TASK-4.
+The test server has a fully generated copy of the world (TASK-27, `patches-tools/local-test/README.md`, "A fully generated world"), so every biome can be checked there. Only objects in generated zones are drawn; predicting ungenerated ones is TASK-4.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -44,9 +45,37 @@ The test world may not have generated Mistlands, Ashlands or Deep North zones ye
 - [ ] #4 Every new rule matches the exact prefab names, checked against a save where those zones are generated, and no object that was drawn before changes kind by accident
 - [ ] #5 The new names live in a file of ours, with one marked hook into the upstream classifier (decision-2)
 - [ ] #6 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [ ] #7 Sulfur arches, volture nests, the Places of Mystery and Charred ruins are shown as location markers, named by what they give (sulfur, volture eggs, molten cores, vineberries and fiddleheads)
+- [ ] #8 Unstable lava rock (proustite powder) has its own entry in the layer panel
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+
+**Already marked as locations:** Sunken crypts, burial chambers, troll caves, frost caves, bear caves, infested mines, Charred fortresses, Morgen holes, Fuling camps, tar pits, drake nests, guck trees, and the Deep North places (Mörkhalla, Winding tunnels, The Hole, Ancestral Memorial, Orb of Fimbulvinter, hot springs, Kall Fimbulbringer). The ruins layer covers cabins, towers and houses.
+
+**Already drawn as vegetation kinds:** copper, tin, silver, obsidian, muddy scrap, giant remains (as "Giant bones" under Rocks, not split by yield), Magecap and Jotun puffs, smoke puff, lingonberries, the berries, thistle, dandelion, fiddlehead, wild barley and flax.
+
+**Missing, location markers:**
+- Lava Leviathan `LeviathanLava` (flametal)
+- sulfur arch `SulfurArch`
+- volture nest `VoltureNest`
+- Places of Mystery `PlaceofMystery1`-`3` (molten cores)
+- Charred ruins `CharredRuins*` (vineberries, fiddleheads)
+
+**Missing, vegetation:**
+- Leviathan `leviathan` (chitin)
+- ancient root `YggdrasilRoot` (sap)
+- gold vein `goldvein`; frozen trolls `DN_gammeltrollFrac01`/`02`, `TrollFrost_Frac*` (Bloodgold)
+- seed kale `Pickable_SeedKale`
+- unstable lava rock `UnstableLavaRock` (proustite powder)
+- giant remains split: bones `giant_ribs` (black marble) vs helmets and swords `giant_helmet1`/`2`, `giant_sword1`/`2` (copper and iron scrap)
+
+**Under check (asked of the game data 2026-11-22):** boss summoning items with fixed sources (ancient seeds from greydwarf nests, Fuling totems, withered bone, sealbreaker fragments, bell fragments, the Deep North boss item) and Hildir's quest locations. Add them here once confirmed.
+<!-- SECTION:NOTES:END -->
