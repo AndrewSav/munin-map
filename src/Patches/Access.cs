@@ -53,6 +53,16 @@ namespace MuninMap.Patches
         // the claimed player's name for this request, when require_auth is on; else null
         private static string Claimed(HttpListenerRequest req) => RequireAuth ? Claims.ByKey(KeyOf(req))?.name : null;
 
+        // patches: TASK-22. Who a web ping counts against for WebPing's 10 s limit: with require_auth on,
+        // the claimed character (its stats key, so two of the same name stay apart); otherwise the
+        // connection's address, as upstream. Behind a reverse proxy every visitor has the proxy's
+        // address, so without require_auth the limit is shared by all of them.
+        public static string PingKey(HttpListenerRequest req)
+        {
+            var c = RequireAuth ? Claims.ByKey(KeyOf(req)) : null;
+            return c != null ? "claim:" + c.player : req.RemoteEndPoint?.Address?.ToString() ?? "?";
+        }
+
         // what a pin's "by" or a ping's name is: with require_auth on, the claimed player (whatever
         // the request sent); otherwise the name as given
         public static string NameFor(HttpListenerRequest req, string name) => Claimed(req) ?? name;

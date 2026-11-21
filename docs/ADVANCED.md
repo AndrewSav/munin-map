@@ -300,6 +300,10 @@ hasn't been tried). The proxy needs:
 Keep Munin's own port closed to the outside, so it's reachable only through
 the proxy.
 
+Web pings are limited per network address. Behind a proxy every visitor shares
+the proxy's address, so with `require_auth = false` one ping per 10 seconds is
+shared by everyone. With `require_auth = true` the limit is per claimed player.
+
 ## Building from source
 
 How the project is laid out:

@@ -440,7 +440,7 @@ namespace MuninMap
                     string name = MuninMap.CleanPinText(f.TryGetValue("name", out object no) ? no as string : null, 16);
                     if (name.Length == 0) name = "Someone";
                     name = MuninMap.CleanPinText(Patches.Access.NameFor(req, name), 16);   // patches: TASK-20 (require_auth: the claimed player)
-                    int wait = WebPing.Try(req.RemoteEndPoint?.Address?.ToString() ?? "?", x, z, name);
+                    int wait = WebPing.Try(Patches.Access.PingKey(req), x, z, name);   // patches: TASK-22 (was: the remote address; require_auth: per claimed player)
                     if (wait > 0) return Text(e, "{\"error\":\"wait\",\"wait\":" + wait + "}", "application/json", nocache: true, status: 429);
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
                 }
