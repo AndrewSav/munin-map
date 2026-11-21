@@ -69,8 +69,9 @@ difference. To catch up, run `update.ps1`. If the base image differs, first chan
    folder, because a copy taken mid-save can be broken.
 3. Checks that the backup's `_main.N.ok` marker matches its `_main.N.db2`.
 4. Copies it down with scp and checks the file count.
-5. Copies the live Munin settings too, changing two lines:
+5. Copies the live Munin settings too, changing three lines:
    - `discord_webhook` is blanked, so the test server never posts to the real Discord.
+   - `hidden_players` is blanked, so test characters show on the map even when live hides them.
    - `data_path` points at the `munin-test_munin-data` volume (see below).
 6. Copies Munin's own data for the world: the top-level files of the world's folder in live's
    `config/bepinex/MuninMap` (stats, activity, trails, events, bases, claims, build history and
