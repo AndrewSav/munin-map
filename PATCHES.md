@@ -147,3 +147,14 @@ stays on the server and is not sent to the page.
 
 How it differs from upstream: upstream keeps trails in memory only, so every restart empties
 them. No new settings.
+
+## TASK-17: Who built a portal or base
+
+A portal's popup and a player base's popup (the editable one included) get a line **Built by
+<name>**. A base's builder is the player who placed most of its pieces. The name is the
+character's, from the game's own record of who placed the piece, so visitors can't fake it. It
+is shown only for a player the map has seen (one in the stats) who is not in `hidden_players`;
+otherwise the popup has no builder line.
+
+How it differs from upstream: upstream sends the builder too, but shows it only on the player
+card's list of what a player built, not in the popups. No server change, no new settings.

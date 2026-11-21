@@ -10,6 +10,7 @@ import { MarkerCanvas } from './markercanvas.js';
 import { layerState } from '../layerstate.js';
 import { spoilerPopup } from '../spoilers.js';   // patches: TASK-1
 import { claimPinForm, claimBaseForm, renamedBy } from '../claims.js';   // patches: TASK-20
+import { builtBy } from '../builtby.js';   // patches: TASK-17
 
 export const LOCATION_CATS = ['spawn', 'boss', 'trader', 'dungeon', 'camp', 'village', 'ruin', 'runestone', 'poi'];
 
@@ -333,6 +334,7 @@ function popupHtml(m, set) {
   else if (m.prefab) extra = `<small>${escape(m.prefab)}${m.placed === false ? ' · not yet generated' : ''}</small>`;
   else if (m.description) extra = `<small>${escape(m.description)}</small>`;
   extra = spoilerPopup(m, extra);   // patches: TASK-1
+  extra = builtBy(m, extra);   // patches: TASK-17 (portals and bases: who built it)
   extra = renamedBy(m, extra);   // patches: TASK-20
   return `<b>${escape(m.label || (m.cat === 'tablepin' ? 'Map pin' : ''))}</b><small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;
 }
