@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-21T10:00:00Z'
-updated_date: '2026-11-21T21:56:04Z'
+updated_date: '2026-11-21T22:03:52Z'
 labels:
   - plugin
   - web
@@ -47,6 +47,8 @@ The test server has a fully generated copy of the world (TASK-27, `patches-tools
 - [ ] #6 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 - [ ] #7 Sulfur arches, volture nests, the Places of Mystery and Charred ruins are shown as location markers, named by what they give (sulfur, volture eggs, molten cores, vineberries and fiddleheads)
 - [ ] #8 Unstable lava rock (proustite powder) has its own entry in the layer panel
+- [ ] #9 Greydwarf camps are shown as location markers, named as a source of ancient seeds
+- [ ] #10 Where the save has them, a location's popup says whether its boss-item object is still there: totem poles in Fuling villages and stone towers, the bell fragment altar in Charred fortresses, sealbreaker crystals in infested mines
 <!-- AC:END -->
 
 ## Definition of Done
@@ -78,4 +80,13 @@ The test server has a fully generated copy of the world (TASK-27, `patches-tools
 - giant remains split: bones `giant_ribs` (black marble) vs helmets and swords `giant_helmet1`/`2`, `giant_sword1`/`2` (copper and iron scrap)
 
 **Under check (asked of the game data 2026-11-22):** boss summoning items with fixed sources (ancient seeds from greydwarf nests, Fuling totems, withered bone, sealbreaker fragments, bell fragments, the Deep North boss item) and Hildir's quest locations. Add them here once confirmed.
+
+- Ancient seeds (the Elder): greydwarf nest `Spawner_GreydwarfNest`, 1 in every greydwarf camp `Greydwarf_camp1` (Black Forest, up to 300), 1 seed per nest. Not vegetation. Munin does not mark these camps yet.
+- Fuling totems (Yagluth): totem pole `goblin_totempole`, a pickable that never respawns. About one per Fuling village (bonfire room, 50%), one in every Plains stone tower `StoneTower1`; also in StoneHenge chests and from berserkers.
+- Withered bone (Bonemass): Sunken Crypt and Swamp chests (about 1 in 4) and crypt muck piles (`mudpile2` about 3% per chunk). Mostly chest loot.
+- Sealbreaker fragments (Queen door): `blackmarble_altar_crystal` in some infested-mine rooms (15-30% RandomSpawn).
+- Bell fragments (Fader): `Charred_altar_bellfragment`, 1 per Charred fortress, always present.
+- Deep North boss: its Hateful Blood has no fixed source in 1.0.21 (the only placement is in a disabled location).
+- Hildir's dungeons: already marked by Munin (Smouldering Tomb, Howling Cavern, Sealed Tower); her quest chests are mini-boss drops, not containers.
+- Poteitr does not grow wild; seeds only from Deep North village granary chests.
 <!-- SECTION:NOTES:END -->
