@@ -1,11 +1,11 @@
 ---
 id: TASK-16
 title: Verify Munin behind a TLS-terminating reverse proxy
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-20T01:17:00Z'
-updated_date: '2026-11-21T05:33:00Z'
+updated_date: '2026-11-21T05:41:00Z'
 labels:
   - plugin
   - web
@@ -38,7 +38,7 @@ None of this has been tried behind a real TLS-terminating proxy. Security of wha
 - [x] #3 The live connection works over wss through the proxy: players, events and the clock update, and the page reconnects after a server restart
 - [x] #4 The link preview tags carry the public https address, either from the forwarded headers or from map_url, and which one to rely on is recorded
 - [x] #5 Whatever the server uses X-Forwarded-For for works correctly behind the proxy, and whether a visitor could spoof it is recorded in this task
-- [ ] #6 The proxy settings Munin needs (websocket upgrade, forwarded headers, timeouts for long-lived connections, request size limits if any) are written down in the README
+- [x] #6 The proxy settings Munin needs (websocket upgrade, forwarded headers, timeouts for long-lived connections, request size limits if any) are written down in `docs/ADVANCED.md` (section "Behind a reverse proxy")
 - [x] #7 Anything that breaks is fixed per decision-2, or recorded with a reason when it is left
 <!-- AC:END -->
 
@@ -61,3 +61,9 @@ Criteria 1, 2, 4, 5 and 7 checked (2026-11-21) from the findings above; 7: the o
 
 Reconnect after a server restart (2026-11-21): headless Chrome kept the public page open over wss while the user restarted the live server. The connection closed when the server went down; the page retried by itself with growing gaps (1, 1, 3, 5, 9, 14, then about every 15 s), each try answered 502 by the proxy while Munin was down; it reconnected about 1 min 48 s after the close, and players updates resumed at the normal rate, with no page reload. Criterion 3 checked.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Munin verified behind a real TLS-terminating reverse proxy (deployment details kept out of the repo). Over HTTPS the page, data, tiles, models, icons and scripts load with no mixed content or console errors; the live connection runs over wss, survives long idle periods (an update every second) and reconnects by itself after a server restart (about 1 min 48 s, the proxy answering 502 meanwhile). The link preview carries the public https address; map_url is the setting to rely on. X-Forwarded-For is only used in a debug log line. One problem found: the web ping limit is keyed by remote address, so behind a proxy it is shared by all visitors; fixed for require_auth in TASK-22, recorded for require_auth off. The proxy settings Munin needs are written in docs/ADVANCED.md, 'Behind a reverse proxy' (commit a35527b; the ping note comes with TASK-22). No product code changed, so no PATCHES.md entry.
+<!-- SECTION:FINAL_SUMMARY:END -->
