@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20T01:17:00Z'
-updated_date: '2026-11-21T05:22:00Z'
+updated_date: '2026-11-21T05:33:00Z'
 labels:
   - plugin
   - web
@@ -33,13 +33,13 @@ None of this has been tried behind a real TLS-terminating proxy. Security of wha
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Verified against a real TLS-terminating reverse proxy deployment reachable from the internet; deployment details (address, proxy product, hosts) are kept out of the repo and the backlog
-- [ ] #2 Through the proxy over HTTPS, the page, data, map tiles, 3D models and icons all load, with no mixed-content warnings in the browser
-- [ ] #3 The live connection works over wss through the proxy: players, events and the clock update, and the page reconnects after a server restart
-- [ ] #4 The link preview tags carry the public https address, either from the forwarded headers or from map_url, and which one to rely on is recorded
-- [ ] #5 Whatever the server uses X-Forwarded-For for works correctly behind the proxy, and whether a visitor could spoof it is recorded in this task
+- [x] #1 Verified against a real TLS-terminating reverse proxy deployment reachable from the internet; deployment details (address, proxy product, hosts) are kept out of the repo and the backlog
+- [x] #2 Through the proxy over HTTPS, the page, data, map tiles, 3D models and icons all load, with no mixed-content warnings in the browser
+- [x] #3 The live connection works over wss through the proxy: players, events and the clock update, and the page reconnects after a server restart
+- [x] #4 The link preview tags carry the public https address, either from the forwarded headers or from map_url, and which one to rely on is recorded
+- [x] #5 Whatever the server uses X-Forwarded-For for works correctly behind the proxy, and whether a visitor could spoof it is recorded in this task
 - [ ] #6 The proxy settings Munin needs (websocket upgrade, forwarded headers, timeouts for long-lived connections, request size limits if any) are written down in the README
-- [ ] #7 Anything that breaks is fixed per decision-2, or recorded with a reason when it is left
+- [x] #7 Anything that breaks is fixed per decision-2, or recorded with a reason when it is left
 <!-- AC:END -->
 
 ## Implementation Notes
@@ -56,4 +56,8 @@ Findings against the real deployment (2026-11-21; HTTPS at the proxy, plain HTTP
 - Note: TASK-19 and TASK-20 fixes confirmed on the deployment: no key field or Steam IDs in data/stats.json; an unclaimed pin is refused 403.
 
 Ping limit behind a proxy: fixed for require_auth in TASK-22 (per claimed player). Options weighed (2026-11-21): leave it; per claimed player (chosen); per X-Forwarded-For. Correction to the earlier discussion: X-Forwarded-For is trustworthy when Munin reads the entry the proxy added (the last one, if the proxy appends to a client-sent header) and Munin is only reachable through the proxy; it was not chosen because it depends on that setup. With require_auth off, the limit stays shared by all visitors behind a proxy (to be noted in the docs).
+
+Criteria 1, 2, 4, 5 and 7 checked (2026-11-21) from the findings above; 7: the one problem found (ping limit behind a proxy) is fixed for require_auth in TASK-22, and with require_auth off is recorded, left as upstream. Open: 3 (reconnect after a server restart) and 6 (proxy settings written down).
+
+Reconnect after a server restart (2026-11-21): headless Chrome kept the public page open over wss while the user restarted the live server. The connection closed when the server went down; the page retried by itself with growing gaps (1, 1, 3, 5, 9, 14, then about every 15 s), each try answered 502 by the proxy while Munin was down; it reconnected about 1 min 48 s after the close, and players updates resumed at the normal rate, with no page reload. Criterion 3 checked.
 <!-- SECTION:NOTES:END -->
