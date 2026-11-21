@@ -2,7 +2,7 @@
 //
 // enable_sweep_api: off, POST api/sweep and /structures/refresh need the admin token.
 // require_auth: on, the actions that change something need a claimed player (Claims.cs), and pins,
-// pings and base edits carry the claimed player's name, never one typed in.
+// pings and base edits carry the claimed player's name, never the one a request sends.
 // Both at their defaults, every action request goes through untouched, as upstream.
 //
 // Endpoints served here:
@@ -30,8 +30,8 @@ namespace MuninMap.Patches
         public static void Bind(ConfigFile config)
         {
             RequireAuth = config.Bind("User", "require_auth", RequireAuth,
-                "Only claimed players may place or remove pins, ping, rename or hide bases, or ask for a world sweep from the web page. "
-                + "Each player claims their character once in their browser with the player token (player.token beside announce.token). "
+                "Only claimed players may place or remove pins, ping or rename or hide bases from the web page, or ask for a world sweep (POST /api/sweep). "
+                + "Each player claims their character with the user key the admin shares (user.token beside announce.token). "
                 + "The admin token is accepted as always. Off: anyone who can reach the map may, as before.").Value;
             EnableSweepApi = config.Bind("Sweep", "enable_sweep_api", EnableSweepApi,
                 "Let anyone ask for a world sweep now (POST /api/sweep, /structures/refresh). Off: only with the admin token.").Value;
@@ -54,7 +54,7 @@ namespace MuninMap.Patches
         private static string Claimed(HttpListenerRequest req) => RequireAuth ? Claims.ByKey(KeyOf(req))?.name : null;
 
         // what a pin's "by" or a ping's name is: with require_auth on, the claimed player (whatever
-        // the page typed); otherwise the name as given
+        // the request sent); otherwise the name as given
         public static string NameFor(HttpListenerRequest req, string name) => Claimed(req) ?? name;
 
         // who made a base edit, for BaseEdits
@@ -87,7 +87,7 @@ namespace MuninMap.Patches
                     var f = Body(req);
                     string why = Claims.TryClaim(f != null ? JsonParser.Str(f, "id", null) : null, f != null ? JsonParser.Str(f, "token", null) : null,
                         Claims.KeyOf(req.Headers["X-Munin-Client"] ?? (f != null ? JsonParser.Str(f, "client", null) : null)), out string name);
-                    if (why != null) return Json(e, why == "wrong player token" || why == "claiming is closed" ? 403 : 409, "{\"error\":" + Quote(why) + "}");
+                    if (why != null) return Json(e, why == "wrong user key" || why == "claiming is closed" ? 403 : 409, "{\"error\":" + Quote(why) + "}");
                     return Json(e, 200, "{\"name\":" + Quote(name) + "}");
                 }
                 case "/api/unclaim":

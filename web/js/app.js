@@ -22,6 +22,7 @@ import { chunks, objects, prefabs, markers, stats } from './data.js';
 import { Sidebar, newerVersion } from './ui.js';
 import { BiomeHover } from './biomehover.js';
 import './clock.js';   // patches: TASK-2 (the clock chip and its Settings switch)
+import { claimPing } from './claims.js';   // patches: TASK-20
 
 const $ = (s) => document.querySelector(s);
 
@@ -728,6 +729,7 @@ class App {
   async webPing(latlng, name) {
     if (this.config?.web_pings === false) return;
     const { x, z } = fromLatLng(latlng);
+    if (await claimPing(latlng, x, z)) return;   // patches: TASK-20 (require_auth: as the claimed player)
     if (!name) { try { name = localStorage.getItem('munin-pin-name') || ''; } catch (e) { /* no storage */ } }
     if (!name) {
       name = (window.prompt('Your name, shown in game with the ping') || '').trim();
