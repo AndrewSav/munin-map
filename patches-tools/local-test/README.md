@@ -30,7 +30,7 @@ from the live server's `docker-compose.yml` by `pull-save.ps1`.
 ## The loop
 
 ```powershell
-.\patches-tools\local-test\pull-save.ps1   # now and then: fresh copy of the live world
+.\patches-tools\local-test\pull-save.ps1   # now and then: fresh copy of the live world and its Munin data
 .\patches-tools\local-test\deploy.ps1      # after each code change: build, deploy, restart (~42 s)
 .\patches-tools\local-test\update.ps1      # when live updates Valheim, BepInEx or its image
 ```
@@ -72,7 +72,15 @@ difference. To catch up, run `update.ps1`. If the base image differs, first chan
 5. Copies the live Munin settings too, changing two lines:
    - `discord_webhook` is blanked, so the test server never posts to the real Discord.
    - `data_path` points at the `munin-test_munin-data` volume (see below).
-6. Stops the local server, if it is running, and swaps in the world and the settings.
+6. Copies Munin's own data for the world: the top-level files of the world's folder in live's
+   `config/bepinex/MuninMap` (stats, activity, trails, events, bases, claims, build history and
+   caches; about 20 MB). Munin names builders, players and trails from these, so without them the
+   test server can't name anyone who only played on live. Tiles, models and icons stay behind
+   (hundreds of MB; the test server makes its own). A `.json` file that doesn't parse was caught
+   mid-write on live: run it again. Only live's default `data_path` (empty) is supported.
+   `-WorldOnly` skips this step and keeps the test server's own Munin data.
+7. Stops the local server, if it is running, and swaps in the world and the settings. The Munin
+   files replace the test server's own top-level files in `munin-test_munin-data`; its tiles stay.
 
 **`update.ps1`**:
 1. Rebuilds the `valheim` image, pulling the base image again.
@@ -127,7 +135,7 @@ browse them.
 | **`deploy.ps1` round** | **about 78 s** | **about 42 s** |
 | From `deploy.ps1` to standing in the world (timed by hand) | n/a | about 70 s |
 | `update.ps1` (nothing new on Steam) | n/a | 60–75 s |
-| `pull-save.ps1` | 1.5 s (about 10 s when it stops a running server) | same |
+| `pull-save.ps1` | about 9 s with the Munin data, 1.5 s with `-WorldOnly` (plus about 5 s when it stops a running server) | same |
 
 Where the 31 s goes: Unity loading the game's assets about 15 s, Steam and the dungeon
 database about 4 s, the world about 2 s, then about 6 s until "Game server connected". All of
