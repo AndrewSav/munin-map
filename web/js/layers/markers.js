@@ -9,6 +9,7 @@ import { getJSON, on } from '../net.js';
 import { MarkerCanvas } from './markercanvas.js';
 import { layerState } from '../layerstate.js';
 import { spoilerPopup } from '../spoilers.js';   // patches: TASK-1
+import { claimPinForm, claimBaseForm, renamedBy } from '../claims.js';   // patches: TASK-20
 
 export const LOCATION_CATS = ['spawn', 'boss', 'trader', 'dungeon', 'camp', 'village', 'ruin', 'runestone', 'poi'];
 
@@ -241,6 +242,7 @@ export class MarkerLayers {
     form.addEventListener('submit', (ev) => { ev.preventDefault(); const v = String(new FormData(form).get('label') || '').trim(); if (v) send({ label: v }); });
     el.querySelector('[data-act=hide]').addEventListener('click', () => send({ hidden: true }));
     el.querySelector('[data-act=reset]')?.addEventListener('click', () => send({}));
+    claimBaseForm(el);   // patches: TASK-20
     return el;
   }
 
@@ -258,6 +260,7 @@ export class MarkerLayers {
       <small class="err" hidden></small>
       <details class="pin-key"><summary>Pin key</summary><small>Your pins can be removed from this browser only. To remove them from another one, copy this key there.</small>
       <div class="row"><input name="key" value="${escape(clientId())}" autocomplete="off" spellcheck="false"><button class="btn small" type="button" data-act="key">Use key</button></div></details>`;
+    claimPinForm(el);   // patches: TASK-20
     const popup = L.popup({ closeButton: true, autoPan: true, className: 'pin-form-popup' }).setLatLng(latlng).setContent(el).openOn(this.map);
     setTimeout(() => el.querySelector('[name=text]').focus(), 50);
     el.querySelector('[data-act=ping]')?.addEventListener('click', () => {
@@ -330,5 +333,6 @@ function popupHtml(m, set) {
   else if (m.prefab) extra = `<small>${escape(m.prefab)}${m.placed === false ? ' · not yet generated' : ''}</small>`;
   else if (m.description) extra = `<small>${escape(m.description)}</small>`;
   extra = spoilerPopup(m, extra);   // patches: TASK-1
+  extra = renamedBy(m, extra);   // patches: TASK-20
   return `<b>${escape(m.label || (m.cat === 'tablepin' ? 'Map pin' : ''))}</b><small>${escape(set.label)} · ${m.x}, ${m.z}</small>${extra ? '<br>' + extra : ''}`;
 }

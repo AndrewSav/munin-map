@@ -9,6 +9,7 @@ markers, the HTTP API, server load, and building from source.
 * [Server load and disk](#server-load-and-disk)
 * [Textures and meshes for 3D](#textures-and-meshes-for-3d)
 * [Pins and bases](#pins-and-bases)
+* [Player access](#player-access)
 * [Exporting a 3D scene](#exporting-a-3d-scene)
 * [HTTP API](#http-api)
 * [Caches and Cloudflare](#caches-and-cloudflare)
@@ -80,6 +81,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Sweep | `first_sweep_delay` | 5 | seconds after the world loads before the first walk over its objects; buildings and structures are empty on the map until it has run |
 | Sweep | `second_sweep_delay` | 30 | seconds after the world loads for one extra walk, to catch what was still loading. 0 (or not more than `first_sweep_delay`) turns it off |
 | Debug | `perf_report` | false | every 5 minutes, log how much of the game thread each of Munin's jobs takes |
+| User | `require_auth` | false | only claimed players may pin, ping or edit bases from the page, or ask for a sweep by API; see [Player access](#player-access) |
 | Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
 
 ## Your own markers
@@ -176,6 +178,52 @@ it, or go back to the automatic name (a nearby portal's tag, else "Base").
 Saved in `bases.json`. If a lone workbench shows up as a base, raise
 `base_min_pieces`.
 
+## Player access
+
+With `require_auth = true`, only **claimed players** may place or remove pins,
+ping or rename or hide bases from the page, or ask for a world sweep (`POST /api/sweep`). Viewing the
+map stays open to anyone who can reach it. The admin token works as always.
+
+**Setting up:** make a file called `user.token` beside `announce.token`
+(`BepInEx/config/MuninMap`) with the **user key** in it, a strong secret: a long randomly
+generated string, such as one from a password manager or `openssl rand -hex 32`,
+not a word. Share it with your players. Without the file, nobody can claim.
+
+**Claiming:** right-click the map (or open a base) and pick your character from
+the list, enter the user key, then **Claim**. If your name isn't listed,
+join the game server first: the map only knows players it has seen online.
+Claim your main character: the claim only puts your name on
+pins, pings and base renames. Once claimed, the pin form shows your name in
+place of the name field, and middle-click pings as you without asking for one.
+
+**Your Browser ID:** the claim belongs to your browser's ID, shown as **Browser
+ID** in the pin form and the base popup (with `require_auth` off, the pin form
+calls it **Pin key**). Keep a copy of it. To act as the same player in another
+browser or on another device, paste it there in **Browser ID** and press
+**Use ID**: no second claim is needed. A browser that has claimed a player only
+accepts another ID that holds a claim too, so it can't start over with a fresh one.
+
+**Claimed the wrong player?** Ask the admin to unclaim it, then claim the right
+one. The admin unclaims from the players panel, under **Claimed players** (shown
+in a browser where the admin key has been entered, as for the server log), or
+with `POST /api/unclaim`.
+
+**Bases:** who last renamed or hid each base, and when, is kept in
+`bases-edits.json`, and a renamed base's popup names who renamed it.
+`GET /api/bases` (admin token) lists every renamed or hidden base with that
+record. Hiding a renamed base drops its name, so the list keeps the last one as
+`previousLabel`. To unhide a base, or give it back its name, send
+`POST /api/base` with `{"x": .., "z": .., "label": ".."}` (or just `x` and `z`
+for the automatic name) and the admin token.
+
+**Limitations, accepted to keep this simple:**
+* Anyone with the user key can claim any character nobody has claimed yet.
+* Two accounts can each have a character of the same name. The list tells them
+  apart by when each was first seen; pins and pings show only the name.
+* The Browser ID is effectively the player's login. It travels in the pin list's URL
+  (`data/pins.json?client=`), so it can show up in proxy and server access logs,
+  and whoever can read those can act as those players.
+
 ## Exporting a 3D scene
 
 The download button in the top bar exports an area as glTF (Blender, Godot,
@@ -199,7 +247,8 @@ with a heightmap. Fog applies: nothing unexplored leaves the server. See
 | `/config`, `/api/status` | settings for the page, drawing and sweep status |
 | `/map`, `/map.jpg` | the whole world as one image |
 | `POST /api/sweep` | walk the world now (with `enable_sweep_api = false`, only with the token) |
-| `POST /api/pin`, `POST /api/unpin`, `POST /api/base` | add or remove a pin, rename or hide a base |
+| `POST /api/pin`, `POST /api/unpin`, `POST /api/base` | add or remove a pin, rename or hide a base (with `require_auth`, a claimed key) |
+| `/data/claim.json?client=`, `/data/claimable.json`, `POST /api/claim` | this browser's claim, the players it may claim, claiming one ([Player access](#player-access)) |
 
 Need the token (`X-Announce-Token: <secret>`, from `announce.token` next to
 the DLL):
@@ -212,6 +261,8 @@ the DLL):
 | `POST /api/reexport` | export every 3D model again |
 | `POST /api/bases/reset` | forget every base rename and hide |
 | `GET /api/serverlog` | the game's log lines (the page's Server log view) |
+| `GET /api/claims`, `POST /api/unclaim` | the claimed players; unclaim one (`{"id"}` or `{"name"}`) |
+| `GET /api/bases` | every renamed or hidden base, with who and when |
 
 Websocket at `/ws`: JSON frames `hello`, `players`, `events`, `tiles`,
 `world`, `ping`, `pin`, `rmpin`, `reload`.

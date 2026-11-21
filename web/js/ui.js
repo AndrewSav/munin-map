@@ -10,6 +10,7 @@ import { on } from './net.js';
 import { RaidLayer } from './layers/raid.js';
 import { BiomeHover } from './biomehover.js';
 import { buildSettings } from './patches-settings.js';   // patches: TASK-1
+import { adminClaims } from './claims.js';   // patches: TASK-20
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -369,6 +370,7 @@ export class Sidebar {
       }
       p.append(list);
     }
+    adminClaims(p);   // patches: TASK-20 (with the admin key: the claims, each with Unclaim)
   }
 
   // "at the spawn", "650 m NE of spawn", "2.1 km W of spawn"

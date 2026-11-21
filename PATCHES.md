@@ -63,3 +63,46 @@ How it differs from upstream:
   public stats leave `key` out, the way upstream already leaves out `playerId`.
 - The stats Munin saves to disk keep the full key, so characters stay apart and existing stats
   files load as before. No new settings.
+
+## TASK-20: Player access
+
+Two new settings. At their defaults the server behaves as upstream:
+
+- **`enable_sweep_api`** (default true): false makes `POST /api/sweep` and `/structures/refresh`
+  admin-token only.
+- **`require_auth`** (default false): true lets only **claimed players** place or remove pins,
+  ping or rename or hide bases from the page, or ask for a world sweep by API. Viewing stays open.
+  - Players claim their character from the right-click pin form or a base
+    popup: pick it from the list of players Munin has seen, enter the **user key** (a long
+    random string in `user.token` beside `announce.token`, shared by the admin; no file, no
+    claiming). Players are expected to claim their main character: the claim only puts a name
+    on pins, pings and base renames, so which of their characters they claim makes little
+    difference.
+  - The claim belongs to the browser's ID (upstream's **Pin key**, shown as **Browser ID** in the
+    pin form and, new, in the base popup); entering it in another browser makes that the same
+    player. One player per ID, one ID per player. A browser whose ID holds a claim only switches
+    to another ID that holds one.
+  - Pins and pings carry the claimed name: the pin form has no name field and middle-click no
+    name prompt (the server ignores any name a request sends, and uses the name corresponding
+    to the browser's ID instead). Middle-click without a claim says to claim first.
+  - The admin unclaims from the players panel (**Claimed players**, in a browser with the admin
+    key) or by API, for example after someone claimed the wrong player.
+  - Accepted limitations: anyone with the user key can claim any unclaimed character;
+    same-name characters on two accounts look alike; the Browser ID is a login
+    that travels in a URL query and can land in access logs.
+
+Also, whatever `require_auth` says:
+- Who last renamed or hid each base, and when, is kept (`bases-edits.json`), and a renamed base's
+  popup names who renamed it ("admin" for the admin token; nothing shown for an anonymous edit).
+- `GET /api/bases` (admin token) lists every renamed or hidden base with that record. Upstream
+  drops a base's custom name when it is hidden; the list keeps the last one as `previousLabel`,
+  so the admin can restore it with `POST /api/base`.
+- New endpoints: `data/claim.json`, `data/claimable.json`, `api/claim`, and admin-only
+  `api/claims`, `api/unclaim`, `api/bases`.
+
+How it differs from upstream:
+- Upstream lets anyone who can reach the map pin, ping and edit bases under any name, and run
+  sweeps. Its switches (`web_pins`, `web_pings`, `web_edit_bases`) keep their meaning here: off
+  means off for everyone except the admin token holder; `require_auth` only adds the claim on top.
+- Chat pins (`!pin`, `!undopin`, `!deletepin`) are unchanged: the game has already identified the player.
+- The README and docs describe the admin token as a long random string rather than a word.
