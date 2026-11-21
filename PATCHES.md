@@ -118,3 +118,14 @@ telling visitors apart by the connection's network address.
   the proxy's address, so there the limit is shared by everyone.
 
 How it differs from upstream: upstream always keys the limit by network address. No new settings.
+
+## TASK-15: World seed in Server details
+
+A new server setting, **`show_seed`** (default false). With it on, the stats panel's **Server
+details** gets a last line, **Seed**, with the world's seed, so players can look the world up on
+seed-map websites without asking. The seed reveals the whole world on those sites, so it is a
+spoiler and off by default. With it off, the seed is not sent to the page at all (the config
+carries it only when the setting is on). It is not secret from players on the server, though: the
+game's own `printseeds` console command prints it (F5, with the `-console` launch option).
+
+How it differs from upstream: upstream never shows or sends the seed.
