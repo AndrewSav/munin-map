@@ -11,10 +11,15 @@
      checks that its _main.N.ok marker matches its _main.N.db2.
   3. Copies the live Munin settings, with discord_webhook blanked so the test server never
      posts to the real Discord, and data_path pointed at the test server's Docker volume.
-  4. Stops the local test server if it is running, and swaps the copy in as the local world.
+  4. Copies Munin's own data for the world (the top-level files of its world folder: stats,
+     activity, trails, events, bases, claims, build history, caches), so builders, players and
+     trails are named as on live. Tiles, models and icons are left out: hundreds of MB, and the
+     test server makes its own. -WorldOnly skips this and keeps the test server's Munin data.
+  5. Stops the local test server if it is running, and swaps the copies in.
 
   Start the server again with deploy.ps1.
 #>
+param([switch]$WorldOnly)
 $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 . (Join-Path $here "common.ps1")
@@ -67,6 +72,29 @@ $got = @(Get-ChildItem $staged -File).Count
 if ($got -ne $files.Count) { throw "copied $got files, expected $($files.Count)" }
 & $scp -q -o BatchMode=yes "$($settings.SshHost):$dir/config/bepinex/com.cocopuff2u.muninmap.cfg" (Join-Path $incoming "muninmap.cfg")
 if ($LASTEXITCODE -ne 0) { throw "scp of the Munin settings failed" }
+
+# --- Munin's data for the world: the top-level files of its folder
+$muninIn = Join-Path $data "config\munin-incoming"   # under ./data/config, which the container sees as /config
+if (Test-Path $muninIn) { Remove-Item $muninIn -Recurse -Force }
+if (-not $WorldOnly) {
+  $dataPath = (Get-Content (Join-Path $incoming "muninmap.cfg") | Where-Object { $_ -match '^\s*data_path\s*=' } | Select-Object -First 1) -replace '^\s*data_path\s*=\s*', ''
+  # empty: BepInEx/config/MuninMap, which the live image keeps in ./config/bepinex
+  if ($dataPath.Trim()) { throw "live data_path is '$($dataPath.Trim())': pull-save.ps1 only knows where the default one is on the live host. Use -WorldOnly, or teach it this one." }
+  $liveMunin = "$dir/config/bepinex/MuninMap/$world"
+  $names = @(Invoke-Live "cd ~/$liveMunin && find . -maxdepth 1 -type f -printf '%f
+'")
+  if ($LASTEXITCODE -ne 0 -or -not $names) { throw "no Munin data found in ~/$liveMunin on $($settings.SshHost)" }
+  New-Item -ItemType Directory -Force $muninIn | Out-Null
+  & $scp -q -p -o BatchMode=yes @($names | ForEach-Object { "$($settings.SshHost):$liveMunin/$_" }) $muninIn
+  if ($LASTEXITCODE -ne 0) { throw "scp of the Munin data failed" }
+  $got = @(Get-ChildItem $muninIn -File).Count
+  if ($got -ne $names.Count) { throw "copied $got Munin files, expected $($names.Count)" }
+  # Munin writes some of these in place, so a copy can catch one half written
+  foreach ($f in Get-ChildItem $muninIn -File -Filter *.json) {
+    try { $null = Get-Content $f.FullName -Raw | ConvertFrom-Json } catch { throw "$($f.Name) from live doesn't parse (caught mid-write?): run pull-save.ps1 again" }
+  }
+  Write-Host "Munin data: $got files from ~/$liveMunin"
+}
 Write-Host ("Copied in {0:n1} s" -f $total.Elapsed.TotalSeconds)
 
 # --- stop the local server so it can't save over the swap
@@ -91,5 +119,17 @@ $cfg = (Get-Content (Join-Path $incoming "muninmap.cfg")) -replace '^(\s*discord
   -replace '^(\s*data_path\s*=).*$', '$1 /home/valheim/munin-data'   # the Docker volume in compose.yml
 Set-Content -Path (Join-Path $bepinex "com.cocopuff2u.muninmap.cfg") -Value $cfg
 Remove-Item $incoming -Recurse -Force
+
+# --- Munin's data into the munin-data volume: the test server's own top-level files go, its
+# subfolders (tiles and the like) stay. A one-off container as root, so the files can be given to
+# the container's valheim user, who runs the server.
+if (-not $WorldOnly) {
+  $w = "/home/valheim/munin-data/$world"
+  $sh = "set -e; mkdir -p '$w'; find '$w' -maxdepth 1 -type f -delete; cp /config/munin-incoming/* '$w/'; " +
+        "chown valheim:valheim '$w'; find '$w' -maxdepth 1 -type f -exec chown valheim:valheim {} + -exec chmod 644 {} +"
+  docker compose -f $compose run --rm --no-deps -u root --entrypoint sh valheim -c $sh
+  if ($LASTEXITCODE -ne 0) { throw "could not copy the Munin data into the munin-data volume" }
+  Remove-Item $muninIn -Recurse -Force
+}
 
 Write-Host ("World $world is now $backup. Done in {0:n1} s. Start the server with deploy.ps1." -f $total.Elapsed.TotalSeconds)
