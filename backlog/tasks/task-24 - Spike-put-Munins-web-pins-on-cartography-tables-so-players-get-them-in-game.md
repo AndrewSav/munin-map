@@ -4,6 +4,7 @@ title: 'Spike: put Munin''s web pins on cartography tables so players get them i
 status: To Do
 assignee: []
 created_date: '2026-11-21T07:53:00Z'
+updated_date: '2026-11-21T08:01:00Z'
 labels:
   - plugin
 dependencies: []
@@ -44,9 +45,23 @@ This spike checks the parts that matter on the local test server and decides whe
 - [ ] #6 doc-1 updated with what was tested, and every claim marked as tested in game or not
 - [ ] #7 A recommendation is recorded in the task: build or not, and if build, the design choices listed in the description, as a proposed feature task (not created without approval)
 - [ ] #8 Spike code is not merged into the product
+- [ ] #9 The recommendation addresses abuse: with `require_auth` off anyone who can open the map can place pins, and on the tables those pins would reach every player who Reads one, and no player can delete them for good (only Munin can, from every table). It decides who may ever reach the tables (for example only claimed players with `require_auth` on, only admin-approved pins, or an admin switch) and how a bad pin is removed everywhere
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
 - [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
+
+## Comments
+
+<!-- COMMENTS:BEGIN -->
+author: @claude
+created: 2026-11-21T08:01:00Z
+
+---
+
+Concern raised in review: web pins on tables could be used for spam. Players cannot permanently delete a pin someone else owns (it comes back on their next Read), so with require_auth off anyone who can open the public map could fill every player's in-game map with junk that sticks until Munin removes it from every table. Consider making table pins limited to claimed players' pins or admin-approved ones. Added as AC #9.
+
+---
+<!-- COMMENTS:END -->
