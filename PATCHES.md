@@ -129,3 +129,21 @@ carries it only when the setting is on). It is not secret from players on the se
 game's own `printseeds` console command prints it (F5, with the `-console` launch option).
 
 How it differs from upstream: upstream never shows or sends the seed.
+
+## TASK-3: Player trails kept across restarts
+
+The activity layer's player trails (the last 3 or 24 hours of where each player went) now
+survive a server restart. They are saved to `trails.txt` in the world's folder, beside
+`activity.txt`, every `stats_save_interval` (60 s by default) and at shutdown.
+
+- **Clean shutdown:** everything recorded up to then is kept.
+- **Crash or killed process:** what was recorded since the last save is lost.
+- **On start:** points older than 24 hours are dropped, and so are players listed in
+  `hidden_players`. A missing, empty or unreadable file means starting with no trails and a
+  warning in the log.
+
+The file holds each player's key (which can be a Steam ID) and name, as `stats.json` does. It
+stays on the server and is not sent to the page.
+
+How it differs from upstream: upstream keeps trails in memory only, so every restart empties
+them. No new settings.
