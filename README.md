@@ -201,6 +201,11 @@ in it: a long randomly generated string, such as one from a password manager or
   `curl -X POST -H "X-Announce-Token: <secret>" -d "Hello Vikings" http://localhost:3000/announce`
 * **Use the admin API calls**: listed in [docs/ADVANCED.md](https://github.com/cocopuff2u-gaming/munin-map/blob/main/docs/ADVANCED.md#http-api).
 
+To let only your own players pin, ping and rename bases from the page, set
+`require_auth = true` and give them a user key (a second long random
+string, in `user.token` beside `announce.token`): see
+[Player access](docs/ADVANCED.md#player-access).
+
 ---
 
 ## Troubleshooting

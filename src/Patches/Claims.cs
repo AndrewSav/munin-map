@@ -1,7 +1,7 @@
 // patches: TASK-20. Claimed players (fork only, see PATCHES.md).
 //
 // With require_auth on, a browser claims one of the players Munin knows (a character: its stats
-// key, <SteamID64>/<name>) with the player token, a secret in player.token beside announce.token
+// key, <SteamID64>/<name>) with the user key, a secret in user.token beside announce.token
 // that the admin shares with their players. The claim ties that browser's key (the client ID the
 // page sends as X-Munin-Client, shown on the page as the "pin key") to the player. One player per
 // key and one key per player; the admin can unclaim.
@@ -30,9 +30,9 @@ namespace MuninMap.Patches
         private static string salt;
         private static List<Claim> claims = new List<Claim>();
 
-        // ---- the player token: player.token beside announce.token, re-read when it changes
+        // ---- the user key: user.token beside announce.token, re-read when it changes
 
-        private const string TokenFile = "player.token";
+        private const string TokenFile = "user.token";
         private static string tokenCache; private static DateTime tokenStamp;
 
         public static string Token
@@ -160,7 +160,7 @@ namespace MuninMap.Patches
         {
             name = null;
             if (!Open) return "claiming is closed";
-            if (token == null || token.Trim() != Token) return "wrong player token";
+            if (token == null || token.Trim() != Token) return "wrong user key";
             if (key == null) return "no key";
             lock (gate)
             {

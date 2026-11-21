@@ -460,8 +460,8 @@ namespace MuninMap
                     if (label != null && label.Length == 0) label = null;
                     bool hidden = f.TryGetValue("hidden", out object ho) && ho is bool hb && hb;
                     if (!PinRateOk(WebOwner(req, f))) return Text(e, "{\"error\":\"slow down\"}", "application/json", nocache: true, status: 429);
+                    Patches.BaseEdits.Record(Patches.Access.Who(req), x, z, label, hidden);   // patches: TASK-20 (before SetBase: it rebuilds the markers, renamedBy included)
                     Markers.SetBase(x, z, label, hidden);
-                    Patches.BaseEdits.Record(Patches.Access.Who(req), x, z, label, hidden);   // patches: TASK-20
                     BroadcastWorldRevision();
                     return Text(e, "{\"ok\":true}", "application/json", nocache: true);
                 }
