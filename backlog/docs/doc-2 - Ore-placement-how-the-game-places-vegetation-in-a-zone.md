@@ -3,7 +3,7 @@ id: doc-2
 title: 'Ore placement: how the game places vegetation in a zone'
 type: specification
 created_date: '2026-11-21T08:53:00Z'
-updated_date: '2026-11-21T08:54:00Z'
+updated_date: '2026-11-21T09:39:00Z'
 ---
 How Valheim places vegetation, ore deposits included, when it generates a zone, and how far that could be reproduced for zones nobody has visited (TASK-4). Source: the decompiled game code (`assembly_valheim`, Valheim 1.0.21) and the game's asset data (`_ZoneSystem`, `_LocationList_*`), read on 2026-11-21. Each point says whether it was read in the code or data, or inferred. Nothing here has been tested.
 
@@ -154,3 +154,31 @@ That gives the game's own result with the server's own mods applied, except for 
 - Inferred: physics sees colliders instantiated earlier in the same call, which the game's own blocking relies on, so going through the game's path behaves the same.
 - Objects overhanging from neighbouring zones block only if those zones are loaded, the same as for the real server.
 - **Never run it on the live save:** pruned trader sites and sent icons can't be undone.
+
+## How valheim.tools does it (studied 2026-11-21)
+
+valheim.tools predicts ore in the browser, and players find it the most accurate. This section is from the site's public page scripts and data, read for the method only. Nothing of theirs (code or data) is copied here or anywhere in this repo.
+
+**Method.** It re-runs the game's rules (the first method above), with every piece of the game's maths copied exactly:
+- Its own copy of Unity's random number generator (Xorshift128), the game's string hash, and the world generator's height, biome and forest functions, compiled to WebAssembly.
+- The site calls this "bit-exact". A faster second copy was switched on only after thousands of placements on several seeds matched the first. Some parts (farm and village rooms) are said to be checked against output from the real game.
+
+**Ore is its own pass,** separate from location placement:
+- It re-seeds per zone and per type, as the game does, and places only the wanted types. That makes a whole world cheap for ore, which is rare, but not for trees.
+- It counts the extra random draws a placed object takes, which shift every later draw of that type (see "Seeding and random draws").
+
+**Blocking is modelled only where it matters:**
+- **Block-tested:** silver, tin, obsidian (and ancient roots). For these it also places every earlier type in the same biomes that has a collider, without showing those, and tests each candidate against those objects' collider shapes.
+- **Not block-tested:** copper and buried iron scrap, though the game has the block check on for both. Given the site's accuracy, the one rock placed before each apparently rarely blocks them, which supports doing copper and scrap first.
+- **The shapes are the prefabs' Unity colliders** (mostly mesh colliders of a few hundred triangles, plus boxes, capsules and a few spheres), with each prefab's scale. They are tested against the game's single vertical block-check ray.
+- **Prefabs without a network component are left out of blocking** (inferred from a flag in their data). That matches Ghost mode on a dedicated server, which spawns only networked objects during generation. So the site models the server's generation, not the game's Full mode.
+
+**Clear areas come from the site's own location placement:** it predicts every location's position, then uses a clear-area radius per location type.
+
+**Other details it had to get right:** the zone's biome-area flags (a comment there notes a bug from reading them wrongly), and the 1.0 biome modifiers (the sector assignment is seeded, so exact per seed).
+
+**What it means for Munin:** Munin needs none of these copies or extracted files.
+- It calls the real `UnityEngine.Random`, string hash and `WorldGenerator` in the game process.
+- It reads each prefab's colliders (`MeshCollider`, `BoxCollider`, `CapsuleCollider`, `SphereCollider` with their transforms), network component and clear radii from the loaded game data. That always matches the server's game version.
+- Location positions are already in the world file.
+- What's left to write is the placement loop, the zone-level terrain blend, and a ray-against-shape block test for the few ore types that need it.
