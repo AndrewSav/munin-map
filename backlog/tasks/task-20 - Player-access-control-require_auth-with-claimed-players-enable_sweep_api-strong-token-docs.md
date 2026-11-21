@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-20T07:11:00Z'
-updated_date: '2026-11-21T04:09:00Z'
+updated_date: '2026-11-21T04:13:00Z'
 labels:
   - plugin
   - web
@@ -142,4 +142,6 @@ Decided 2026-11-21: the "cross-site requests with require_auth off" limitation i
 Decided 2026-11-21: the claiming limitation in the docs is one sentence, "Anyone with the user key can claim any character nobody has claimed yet." (it covers alts and one person claiming several). The admin alt-reservation example is removed: copied verbatim, its example ID would become a usable Browser ID for that alt, and it read as a how-to.
 
 require_auth=false pass with the final page code (2026-11-21, test server + headless Chrome): /config and data/claim.json report requireAuth false; pin keeps the typed name; ping without a Browser ID works (server log: web ping from "Typed"); sweep and /structures/refresh 202; unpin works. Page: pin form is upstream's (name field, "Pin key" box, "Use key", no claim block, buttons enabled); base popup has no Browser ID box or claim block, Rename/Hide enabled; middle-click prompts for a name once and posts {x,z,name} with no Browser ID; an anonymous rename is recorded as "web" and the popup shows no "Renamed by" (Auto name present); no "Claimed players" section even with the admin key stored.
+
+hidden_players check (2026-11-21): with hidden_players = bob (both Bobs, case-insensitive) and require_auth on, data/claimable.json was [] (Ann and AdMiN claimed, Bobs hidden), the page's dropdown had no entries, and claiming a hidden Bob by its old id returned 409 "no such player". Test config restored afterwards (hidden_players empty, require_auth false). Chat pins: accepted on code reading (user, 2026-11-21): the chat path (MuninMap chat pin handling) goes through none of TASK-20's hooks.
 <!-- SECTION:NOTES:END -->
