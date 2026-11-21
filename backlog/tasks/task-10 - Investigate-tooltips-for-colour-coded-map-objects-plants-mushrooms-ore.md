@@ -4,7 +4,7 @@ title: Investigate tooltips for colour-coded map objects (plants, mushrooms, ore
 status: To Do
 assignee: []
 created_date: '2026-11-18T09:40:00Z'
-updated_date: '2026-11-19T10:31:00Z'
+updated_date: '2026-11-21T09:48:00Z'
 labels:
   - web
 dependencies: []
@@ -33,3 +33,9 @@ This is an investigation first; it may or may not end in a change. Find out how 
 - [ ] #5 If implemented: hovering stays smooth on the densest parts of the copied live world
 - [ ] #6 If implemented: `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+From TASK-4 (2026-11-21): ore deposits are among these colour-coded dots (vegetation kinds Copper, Tin, Silver, Obsidian, MuddyScrap in Tiles/Vegetation.cs). If TASK-4's predicted deposits land first, they are drawn differently and named only in the legend or layer panel; the tooltips here should cover them too, saying the deposit is predicted (for example 'Copper deposit (predicted)').
+<!-- SECTION:NOTES:END -->
