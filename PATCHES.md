@@ -106,3 +106,15 @@ How it differs from upstream:
   means off for everyone except the admin token holder; `require_auth` only adds the claim on top.
 - Chat pins (`!pin`, `!undopin`, `!deletepin`) are unchanged: the game has already identified the player.
 - The README and docs describe the admin token as a long random string rather than a word.
+
+## TASK-22: Per-player web ping limit
+
+Upstream limits web pings to one per visitor every 10 seconds (and 2 seconds between any two),
+telling visitors apart by the connection's network address.
+
+- **With `require_auth = true`:** the 10 seconds are per claimed player, so one player's ping
+  doesn't make another wait.
+- **With `require_auth = false`:** unchanged. Behind a reverse proxy every visitor arrives from
+  the proxy's address, so there the limit is shared by everyone.
+
+How it differs from upstream: upstream always keys the limit by network address. No new settings.
