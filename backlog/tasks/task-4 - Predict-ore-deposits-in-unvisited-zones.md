@@ -4,7 +4,7 @@ title: Predict ore deposits in unvisited zones
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
-updated_date: '2026-11-21T08:55:00Z'
+updated_date: '2026-11-21T09:48:00Z'
 labels:
   - plugin
   - web
@@ -42,7 +42,7 @@ The zones already generated in a real save are the ground truth to check predict
 <!-- AC:BEGIN -->
 - [ ] #1 Accuracy is measured first: predictions for zones already generated in a real save are compared with the deposits saved there, and the match rate is recorded in the task notes before the feature goes further
 - [ ] #2 With `reveal_all = true`, the map shows predicted ore deposits in zones that have not been generated yet
-- [ ] #3 Predicted deposits look different from known ones and are labelled as predicted
+- [ ] #3 Predicted deposits look different from known ones, and the map's legend or layer panel names them as predicted. Per-deposit labels come with TASK-10's tooltips
 - [ ] #4 Once a zone is generated, its predicted deposits are replaced by the real ones from the save
 - [ ] #5 With `reveal_all = false`, nothing changes: no predicted deposits are shown or sent
 - [ ] #6 The docs say predictions follow the unmodded game's rules and may be wrong on servers with mods that change world generation
