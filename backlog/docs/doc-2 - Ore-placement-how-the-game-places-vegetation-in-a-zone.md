@@ -3,7 +3,7 @@ id: doc-2
 title: 'Ore placement: how the game places vegetation in a zone'
 type: specification
 created_date: '2026-11-21T08:53:00Z'
-updated_date: '2026-11-21T09:39:00Z'
+updated_date: '2026-11-22T19:39:11Z'
 ---
 How Valheim places vegetation, ore deposits included, when it generates a zone, and how far that could be reproduced for zones nobody has visited (TASK-4). Source: the decompiled game code (`assembly_valheim`, Valheim 1.0.21) and the game's asset data (`_ZoneSystem`, `_LocationList_*`), read on 2026-11-21. Each point says whether it was read in the code or data, or inferred. Nothing here has been tested.
 
@@ -182,3 +182,57 @@ valheim.tools predicts ore in the browser, and players find it the most accurate
 - It reads each prefab's colliders (`MeshCollider`, `BoxCollider`, `CapsuleCollider`, `SphereCollider` with their transforms), network component and clear radii from the loaded game data. That always matches the server's game version.
 - Location positions are already in the world file.
 - What's left to write is the placement loop, the zone-level terrain blend, and a ray-against-shape block test for the few ore types that need it.
+
+## Generating a copy faster (ideas, 2026-11-22, nothing decided)
+
+The generated-copy approach (method 2/3 in TASK-4) was done once with Upgrade World: about 3 hours for a whole world on one dedicated server, started by an admin client typing `zones_generate` in the F5 console, plus a cleanup run (TASK-27). As it stands, every admin who wanted predicted ore would have to do that per world, and again after a game update that changes generation, which few would. These are ideas for making it a practical option. None are measured yet.
+
+**No client needed.** Upgrade World's generation is a simple loop (`actions/Generate.cs`, `actions/base/ZoneOperation.cs`): for each ungenerated zone, call `ZoneSystem.SpawnZone(zone, Ghost)`; if it returns false (not ready), retry next frame; give up after 10 s without a success. The client and console only start that loop. A small server plugin can run the same loop on its own: a dedicated server started on a copy of the world, without networking, generates, exports and exits. From the outside that is a CLI pointed at a world. (Upgrade World's "Root users" setting already accepts the dedicated server itself.)
+
+**Or on a client.** A world played locally makes the client its own server, so the world's files copied into the client's `worlds_local` can be generated there with the mod on the client only (same game version needed), then copied back. The "install on client and server" in Upgrade World's README is for dedicated servers.
+
+**Not multi-threaded in one process.** The work is Unity work: instantiating objects, physics raycasts against them (blocking), loading prefabs, creating ZDOs. Unity allows that only on its main thread, so one process generates zones one after another.
+
+**Parallel processes.** Zones barely affect each other (objects overhanging a zone border, unique-location sites), and for an ore list nothing needs merging back into one save. So: start N headless servers, each on its own copy, each given a disjoint share of the zones; each writes out the deposits it generated; join the lists. Each process only builds its share, so its memory stays near the base world's.
+
+**Speed-ups within one process** (all to be measured):
+- Don't hold back for gameplay: process zones back to back instead of a few frames apart, lift the server's frame-rate cap, ask the heightmap builder for upcoming zones ahead (it builds on its own thread and keeps up to 16 ready), skip autosaves during the run.
+- Skip what ore doesn't need:
+  - ocean zones (a large share of the world; only leviathans there);
+  - dungeon interiors: built 5,000 m up, so they can't block surface ore, and the dungeon generator uses its own seed and restores the shared random state;
+  - vegetation entries after the last ore type needed (stopping early is exact, see "Ghost mode" above).
+- The fixed part: the first-time load of each location type's files (20-30 s for some), once per type per process, and the real work of building each zone.
+
+Rough arithmetic, to be measured: about 2x per process from the above, times 8 processes, on land zones only, could bring a whole world well under 15 minutes on a machine with the cores and memory for 8 copies. That would move it from "nobody will bother" to an option.
+
+**Slow and in the background.** The same generator can run as a second process next to the live server, at low priority, on its own copy, and finish after a few hours of normal play with the same export. It must never run on the live world itself: generating there marks zones generated, decides unique sites (deleting the other candidates) and sends location icons to players, and can't be fully undone.
+
+So the copy approach could have two workable forms: fast and parallel on a big machine, or slow next to the server. Either way it is per world, redone after a game update that changes generation, and wrong only where the seed doesn't decide things (randomly rotated locations, unique sites; see TASK-4).
+
+**What decides it:** how much of Upgrade World's speed is waiting versus real work. A spike would measure one headless process in a tight loop on land zones only, without dungeon interiors: zones per minute and memory.
+
+## Measured (TASK-4.1, 2026-11-22)
+
+A client-free generator (`patches-tools/zonegen`) was built and measured on a copy of the live world, with the test server's image and installed server. It is a small BepInEx plugin, switched on by environment variables, that waits until the world's objects have loaded, generates the ungenerated zones with `SpawnZone(zone, Ghost)`, writes the ore deposits it created to a CSV, and quits. `run.ps1` starts it in its own container with its own copy of the world.
+
+**Speed on the 2,000 zones nearest the centre** (each run twice where shown):
+
+| Run | Speed against the plain loop |
+|---|---|
+| plain loop, as Upgrade World (one zone per frame, wait on a refused zone) | 1x |
+| no saves; no dungeon interiors; vegetation cut after the last ore entry (each alone) | 1-1.14x |
+| zones back to back within a 30 ms frame budget, 8 in progress | 5.2x |
+| plus the frame-rate cap lifted | 9.3x |
+| everything | 10x |
+
+Keeping a small window of zones in progress matters: a first version that tried every pending zone each frame asked the heightmap builder (which keeps only 16 finished heightmaps) for hundreds at once, threw finished heightmaps away and gave slow, failing, timing-dependent runs. Memory is about 2 GB per process.
+
+**Parallel:** 2 processes on disjoint shares, 1.85x one process; 4 processes, 3.4x; about 10% per-process loss at 4. Memory about 2 GB per process at the start of a run.
+
+**Whole world:** 4 processes with every speed-up generated every ungenerated zone of the live copy in about 7.4 minutes (9.2 with start-up), no failures, each process's rate varying by about 2x over the run (heavy regions slower), about 3 GB per process at the peak. Upgrade World took 3 hours plus a 17-minute cleanup on the same machine: about 24x faster, and no client.
+
+**Accuracy against the TASK-27 snapshot** (the whole world generated by Upgrade World; its deposits match Munin's own counts exactly). In the zones the run generated, 99.3% of the deposits matched (same ore within 0.5 m): copper 100.0%, tin 99.9%, buried scrap 99.7%, silver 98.7%, obsidian 98.2%. Generating one zone at a time matched 99.9% on the 2,000-zone set; with 8 zones in progress, about 1% of obsidian differs, because the order zones finish in changes which neighbouring objects exist to block near zone edges. Live generates in players' travel order, so live differs from any copy in the same way, plus near randomly rotated locations.
+
+**Next to a running server, at low priority:** the test server (generated world, Munin sweeping) and a low-priority generator (`--cpu-shares 2`) sharing the same CPUs. The server's fps was the same with and without it and its longest sweep frames were in the same range (the window without it came straight after a restart, so its sweeps were slower anyway), and the generator kept nearly its full speed, because the server's main thread needs only part of one core.
+
+**Upshot:** a generated copy is a practical way to get every ore deposit for a world: a whole world in under 10 minutes with 4 processes (about 3 GB each), about half an hour with one, or in the background next to the live server without hurting it. It's 99% accurate, and the misses are the parts the seed doesn't decide. It still needs a copy of the world and a server install to run on, and redoing after a game update that changes generation.
