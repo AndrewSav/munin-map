@@ -66,8 +66,9 @@ of deposits in TASK-4.1's measurements).
 - **Fast (default)** starts as many server processes as fit in 80% of the CPU threads and in free
   memory (1 GB kept free), each generating a share of the zones. It uses most of the machine's CPU
   and memory for the run: don't run it on a machine that is doing something that matters.
-  `--processes N` sets the count.
-  Most of the speed comes with fewer: on
+  `--processes N` sets the count. A process keeps about 2 CPU threads busy, 1.6 when the CPU is
+  shared out, so the default is about one process per two threads. Most of the speed comes with
+  fewer: 8 processes were only about 10% faster than 5.
 - **Memory per process:** about 2.6-3.4 GB at its peak for a whole world, whatever the number of
   processes: most of it is the game's assets for the biomes and locations a process has met,
   which every process meets. It starts near 1.6 GB and climbs most in the outer biomes, near the

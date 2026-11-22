@@ -223,7 +223,8 @@ internal static class Probe
 
 internal static class Runner
 {
-    // to itself and 1.6 when the CPU is 80% busy, so 80% of the threads
+    // measured (TASK-4.2): a process keeps about 2.0-2.2 threads busy when it has the CPU to itself
+    // and about 1.6 when the CPU is 80% busy, so 80% of the threads
     // divided by 1.6 lands near 80% busy
     private const double ThreadsPerProcess = 1.6;
 

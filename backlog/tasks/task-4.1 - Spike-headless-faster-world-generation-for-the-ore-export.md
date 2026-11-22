@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T03:09:49Z'
-updated_date: '2026-11-22T05:05:47Z'
+updated_date: '2026-11-22T19:39:10Z'
 labels:
   - tooling
   - plugin
@@ -57,18 +57,19 @@ TASK-4's copy-based method reads every ore deposit from a fully generated copy o
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Generator built (patches-tools/zonegen: ZoneGen.cs plugin switched on by ZONEGEN_* env vars; run.ps1 starts it in its own container from the test image with its own /config copy of the live world in data/zonegen/base and its own plugins folder, sharing only the installed server volume; bench.ps1 runs a series). No client: smoke test 300 zones in 27 s, 41 deposits, then quit.
-Memory 1.8-2.0 GB per process throughout. Fixed with a window of at most 8 zones in progress; repeat runs (each twice) under way to measure variance.
+Generator built (patches-tools/zonegen: ZoneGen.cs plugin switched on by ZONEGEN_* env vars; run.ps1 starts it in its own container from the test image with its own /config copy of the live world in data/zonegen/base and its own plugins folder, sharing only the installed server volume; bench.ps1 runs a series). No client: a smoke test generated a few hundred zones, wrote their deposits and quit.
+Bench 1 (the 2,000 nearest ungenerated zones): the first non-plain loop let a refused zone go to the back and tried every pending zone per frame, so the heightmap builder (16 ready) was asked for hundreds at once and dropped finished heightmaps: slow, failing, timing-dependent runs. Fixed with a window of at most 8 zones in progress.
 
-Window fix confirmed (bench 2, 2,000 nearest zones, each twice): plain 365 zones/min; budget 1,867/1,861; uncap 3,334/3,326; all 3,602/3,535; all-land 3,092/3,068; 0 failures outside plain (whose 10 s limit still skips slow-loading zones). Memory about 1.9 GB per process.
-Live generates in players' travel order, so live differs from any copy in the same way.
-Upgrade World took 3 h plus a 17-minute cleanup: about 24x faster, no client.
+Window fix confirmed (bench 2, the same 2,000 zones, each setting twice), speed against the plain Upgrade World-like loop: zones back to back within a 30 ms frame budget 5.2x, plus the frame-rate cap lifted 9.3x, every speed-up 10x; no saves, no dungeon interiors and the vegetation cut each made little difference alone (1-1.14x); skipping ocean zones was slower, not faster. No failures outside plain (whose 10 s limit still skips slow-loading zones). Memory about 2 GB per process.
+Snapshot comparison (export mode on the TASK-27 world, whose deposits match Munin's own counts exactly). Same 2,000 zones: plain 99.9% (1 silver vein differs); windowed runs about 99% (some obsidian differs): with several zones in flight the generation order changes, so neighbouring zones' objects near zone edges block differently. Live generates in players' travel order, so live differs from any copy in the same way.
+Parallel (every speed-up): 2 processes 1.85x one, 4 processes 3.4x (about 10% per-process loss at 4).
+Whole world (4 processes, every speed-up, every ungenerated zone of the live copy): all generated, no failures, about 7.4 minutes of generation (9.2 with start-up), per-process rate varying by about 2x over the run (heavy regions slower), about 3 GB per process at the peak. Upgrade World took 3 hours plus a 17-minute cleanup: about 24x faster, no client. Deposits matched the snapshot 99.3% in the same zones: copper 100.0%, tin 99.9%, scrap 99.7%, silver 98.7%, obsidian 98.2%.
 
-A session exit left the first test script running and a restarted one replaced its generator midway; both stopped and the windows were read from the server log by time instead. Results and recommendation written to doc-2 ('Measured') and TASK-4 notes.
+Low priority (the test server on the generated world with Munin and perf_report, and a low-priority generator sharing its CPUs): the server's fps was the same with and without the generator, and its longest sweep frames were in the same range (the window without it came straight after a restart, so its sweeps were slower anyway); the generator kept nearly its full speed, because the server's main thread needs only part of one core. A session exit left the first test script running and a restarted one replaced its generator midway; both stopped and the windows were read from the server log by time instead. perf_report off again afterwards. Results and recommendation written to doc-2 ('Measured') and TASK-4 notes.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-A client-free world generator works and makes the generated-copy method practical. patches-tools/zonegen holds a small BepInEx plugin (switched on by environment variables: generate the ungenerated zones with SpawnZone(Ghost) in a loop, export the ore deposits to CSV, quit), run.ps1 (one generator container on its own copy of the world, from the test server's image) and bench.ps1. Deposits match the Upgrade World snapshot 99.3% (copper 100%, obsidian 98.2%); the misses are the parts the seed doesn't decide. Recommendation in TASK-4: build the copy method (headless export tool plus Munin loading the file). Spike code stays in patches-tools; nothing in the product.
+A client-free world generator works and makes the generated-copy method practical. patches-tools/zonegen holds a small BepInEx plugin (switched on by environment variables: generate the ungenerated zones with SpawnZone(Ghost) in a loop, export the ore deposits to CSV, quit), run.ps1 (one generator container on its own copy of the world, from the test server's image) and bench.ps1. About 10x Upgrade World's loop per process with a small in-progress window, zones back to back and the frame-rate cap lifted; 4 processes generated the whole world in about 7.4 minutes (about 3 GB each, no failures) against Upgrade World's 3 hours; at low priority next to a busy server it didn't hurt the server. Deposits match the Upgrade World snapshot 99.3% (copper 100%, obsidian 98.2%); the misses are the parts the seed doesn't decide. Recommendation in TASK-4: build the copy method (headless export tool plus Munin loading the file). Spike code stays in patches-tools; nothing in the product.
 <!-- SECTION:FINAL_SUMMARY:END -->
