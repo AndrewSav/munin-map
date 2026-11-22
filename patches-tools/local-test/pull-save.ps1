@@ -16,7 +16,8 @@
      activity, trails, events, bases, claims, build history, caches), so builders, players and
      trails are named as on live. Tiles, models and icons are left out: hundreds of MB, and the
      test server makes its own. -WorldOnly skips this and keeps the test server's Munin data.
-  5. Stops the local test server if it is running, and swaps the copies in.
+  5. Stops the local test server if it is running, and swaps the copies in. Munin's map tiles at
+     zoom 5-7 and its overlays are deleted, so the map is redrawn from this world.
 
   Start the server again with deploy.ps1.
 #>
@@ -123,16 +124,22 @@ $cfg = (Get-Content (Join-Path $incoming "muninmap.cfg")) -replace '^(\s*discord
 Set-Content -Path (Join-Path $bepinex "com.cocopuff2u.muninmap.cfg") -Value $cfg
 Remove-Item $incoming -Recurse -Force
 
-# --- Munin's data into the munin-data volume: the test server's own top-level files go, its
-# subfolders (tiles and the like) stay. A one-off container as root, so the files can be given to
-# the container's valheim user, who runs the server.
+# --- the munin-data volume, in a one-off container as root (so files can be given to the
+# container's valheim user, who runs the server):
+# - Munin's map tiles at zoom 5-7 and the vegetation and ground overlays go, every time: they show
+#   the world they were drawn from (a generated snapshot, see use-snapshot.ps1), and Munin's first
+#   sweep after a start only records a baseline, so it would never redraw them. Zoom 0-4 carry no
+#   vegetation or changed ground, and the worlds share one seed, so they stay.
+# - unless -WorldOnly, the test server's own top-level files go and live's come in; other
+#   subfolders stay.
+$w = "/home/valheim/munin-data/$world"
+$sh = "set -e; mkdir -p '$w'; rm -rf '$w/tiles/map/5' '$w/tiles/map/6' '$w/tiles/map/7' '$w/tiles/veg' '$w/tiles/terra'"
 if (-not $WorldOnly) {
-  $w = "/home/valheim/munin-data/$world"
-  $sh = "set -e; mkdir -p '$w'; find '$w' -maxdepth 1 -type f -delete; cp /config/munin-incoming/* '$w/'; " +
-        "chown valheim:valheim '$w'; find '$w' -maxdepth 1 -type f -exec chown valheim:valheim {} + -exec chmod 644 {} +"
-  docker compose -f $compose run --rm --no-deps -u root --entrypoint sh valheim -c $sh
-  if ($LASTEXITCODE -ne 0) { throw "could not copy the Munin data into the munin-data volume" }
-  Remove-Item $muninIn -Recurse -Force
+  $sh += "; find '$w' -maxdepth 1 -type f -delete; cp /config/munin-incoming/* '$w/'; " +
+         "chown valheim:valheim '$w'; find '$w' -maxdepth 1 -type f -exec chown valheim:valheim {} + -exec chmod 644 {} +"
 }
+docker compose -f $compose run --rm --no-deps -u root --entrypoint sh valheim -c $sh
+if ($LASTEXITCODE -ne 0) { throw "could not update Munin's data in the munin-data volume" }
+if (-not $WorldOnly) { Remove-Item $muninIn -Recurse -Force }
 
 Write-Host ("World $world is now $backup. Done in {0:n1} s. Start the server with deploy.ps1." -f $total.Elapsed.TotalSeconds)

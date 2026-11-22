@@ -106,21 +106,29 @@ difference. To catch up, run `update.ps1`. If the base image differs, first chan
 
 A copy of live only has the zones live players have been to. For work that needs the rest
 (Mistlands, Ashlands, Deep North, or comparing against every zone), there is a snapshot of
-the same world with every zone generated, in
-`data/snapshots/<world>-generated-<date>/` (git ignores `data/`).
+the same world with every zone generated, in `data/snapshots/<world>-generated-<date>/` (git
+ignores `data/`): the world's save files in `world/`, and Munin's map tiles drawn for it in
+`tiles/`.
 
 **Use it:**
 
 ```powershell
-docker compose -f patches-tools\local-test\compose.yml stop
-$w = ((Get-Content patches-tools\local-test\.env | Select-String '^WORLD_NAME=').Line -split '=', 2)[1].Trim('"')
-Remove-Item "patches-tools\local-test\data\config\worlds_local\$w" -Recurse -Force
-Copy-Item "patches-tools\local-test\data\snapshots\$w-generated-2026-11-22" "patches-tools\local-test\data\config\worlds_local\$w" -Recurse
+.\patches-tools\local-test\use-snapshot.ps1                       # lists the snapshots
+.\patches-tools\local-test\use-snapshot.ps1 <world>-generated-2026-11-22
 .\patches-tools\local-test\deploy.ps1 -NoBuild
 ```
 
 **Go back to live:** run `pull-save.ps1` as usual. It replaces only `worlds_local`, so the
 snapshot stays.
+
+**Why the tiles move with the world.** Munin draws trees, rocks and changed ground into its map
+tiles at zoom 5-7, and the first sweep after a start only records what is there as a baseline,
+so it never redraws tiles that were drawn for the other world. So `pull-save.ps1` deletes the
+zoom 5-7 tiles and the vegetation and ground overlays on every pull (Munin redraws them for the
+live copy in a few minutes), and `use-snapshot.ps1` puts the snapshot's own tiles back. Without
+them, a full redraw of the generated world takes about 20 minutes on one render thread, though
+tiles someone is looking at are drawn first. Zoom 0-4 have no vegetation and the worlds share
+one seed, so they stay.
 
 The generated world is much bigger than the live copy: about 4.1 million objects instead of
 about 270 thousand, about 150 MB on disk. It loads in under a minute, and a manual save takes
@@ -142,7 +150,8 @@ about 17 s. Munin's sweeps and drawing have a lot more to do on it.
    files the first time. A second `zones_generate` with a local build of Upgrade World that
    waits 120 s instead generated all 329 in 17 minutes. The game's own generation has no such
    limit, so live is not affected.
-5. `save` in the console, a clean stop, and a copy of `worlds_local/<world>` to `data/snapshots/`.
+5. `save` in the console, a clean stop, and a copy of `worlds_local/<world>` to
+   `data/snapshots/<name>/world/`; later (TASK-29) Munin's redrawn tiles went into `tiles/` next to it.
 6. The two mods came off the server and the client again.
 
 Upgrade World's `biomes=`, `min=` and `max=` limit a run to part of the world.
