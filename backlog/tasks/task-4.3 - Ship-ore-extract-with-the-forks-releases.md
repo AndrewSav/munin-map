@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T22:22:18Z'
-updated_date: '2026-11-22T22:52:02Z'
+updated_date: '2026-11-22T22:56:34Z'
 labels:
   - tooling
   - release
@@ -65,5 +65,5 @@ Workflow (.github/workflows/patches.yml): a step builds ore-extract after Munin 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
 ore-extract (TASK-4.2's zonegen, renamed) now ships with the fork's releases. It moved to a top-level ore-extract/ folder (plugin/, cli/, README, build.sh), a folder upstream doesn't have; the test-only scripts and accuracy checks stayed in patches-tools/ore-extract/. Renamed throughout (namespaces, plugin id, OREEXTRACT_* variables, work folder, server and world names, the parent check). Bundles have fixed names, ore-extract-win-x64.zip and ore-extract-linux-x64.tar.gz, so releases/latest/download always has the newest, and `ore-extract version` prints the release stamp the workflow passes in. The release workflow builds ore-extract after Munin on every run, from the same commit and assemblies, adds both bundles to SHA256SUMS and the artifact, checks their version against the stamp on a release, and stops before publishing if any asset is missing. The port search no longer opens test sockets (it made Windows Firewall ask about the tool); it reads the system's list of UDP listeners.
 
-Verified: both bundles build on Windows and in the Linux .NET 8 SDK container; runs on Windows (same deposits and accuracy as before) and Linux (including the kill test); two processes on separate ports. Not yet exercised: the release path of the workflow (assets attached, version check, the missing-asset stop), which first runs at the next release; the push build shows the bundles in its artifact. README (Get it, build) and PATCHES.md updated.
+Verified: both bundles build on Windows and in the Linux .NET 8 SDK container; runs on Windows (same deposits and accuracy as before) and Linux (including the kill test); two processes on separate ports. Release path checked with the release patches-3.4.0-6 (started by hand from the workflow): the version check passed for both MuninMap.dll and ore-extract (3.4.0+patches.6), the release carries MuninMap.zip, both ore-extract bundles and SHA256SUMS, and releases/latest/download/ore-extract-win-x64.zip downloads, matches its checksum and reports that version. The missing-asset stop runs only on a failure and was not exercised. README (Get it, build) and PATCHES.md updated.
 <!-- SECTION:FINAL_SUMMARY:END -->

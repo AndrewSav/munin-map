@@ -4,7 +4,7 @@ title: Show predicted ore from an extract file (predict_ore = file)
 status: To Do
 assignee: []
 created_date: '2026-11-22T22:22:21Z'
-updated_date: '2026-11-22T22:34:08Z'
+updated_date: '2026-11-22T22:59:15Z'
 labels:
   - plugin
   - web
@@ -31,7 +31,7 @@ Ref: TASK-4 (approach in its notes, parent criteria #2-#7), TASK-4.2 (output for
 - [ ] #1 A server setting `predict_ore` (default `off`) selects the prediction method; this task adds `off` and `file`, and the other values are added by TASK-4.5 and TASK-4.6
 - [ ] #2 With `predict_ore = file` and `reveal_all = true`, Munin reads the extract from a documented file in the world's Munin data folder and shows its deposits in zones the save has not generated
 - [ ] #3 Predicted deposits look different from real ones, and the map's legend or layer panel names them as predicted
-- [ ] #4 When a zone is generated while the server runs, its predicted deposits give way to the real ones from the save, without a restart
+- [ ] #4 A generated zone never shows predicted deposits, only its real ones from the save: zones already generated when the extract was made or when the server starts, and zones generated while the server runs, which switch from predicted to real without a restart
 - [ ] #5 With `reveal_all = false` or `predict_ore = off`, nothing is read, shown or sent
 - [ ] #6 An extract for another world (seed) is refused with a log line; one made for another game version than the server's is shown with a warning on the page that every viewer sees, saying the prediction may not match the game version
 - [ ] #7 A missing or malformed file is logged once and nothing is shown; the server is not affected
