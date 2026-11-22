@@ -1,5 +1,5 @@
 ---
-id: TASK-24
+id: DRAFT-6
 title: 'Spike: put Munin''s web pins on cartography tables so players get them in game'
 status: To Do
 assignee: []

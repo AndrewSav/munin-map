@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-18T03:09:00Z'
-updated_date: '2026-11-19T21:15:00Z'
+updated_date: '2026-11-22T21:50:17Z'
 labels:
   - plugin
   - docs
@@ -108,7 +108,7 @@ Unique locations (checked against the game's code and location data): five locat
 
 Browser testing with the user, 2026-11-20:
 - Sidebar scroll: flipping the switch reset the sidebar to the top. Fixed in spoilers.js (keepPlace/restorePlace: the Settings group's offset is saved in sessionStorage and held for up to 4 s after the reload).
-- Forge of Potential labels show only on hover: upstream label rules (only spawn, altars, traders and mini-boss lairs are always labelled), so moved to TASK-9.
+- Forge of Potential labels show only on hover: upstream label rules (only spawn, altars, traders and mini-boss lairs are always labelled), so moved to DRAFT-2.
 - Trees and rocks on black ground in 3D with the toggle off: same as plain upstream v3.4.0 with reveal_all = false, built and run on the same world to compare. Upstream 3D only darkens the ground, and the server sends whole 256 m chunks wherever any part is explored, so objects up to a chunk deep stand on unexplored ground once the 3D view has loaded them. Not a TASK-1 regression.
 - 3D coordinate readout stays at the last 2D position: upstream (only the 2D mousemove writes it).
 - 3D zoom sometimes changes after the reload: intermittent and not reproduced on demand. Restoring the 3D camera from the URL is upstream code; a plain F5 in 3D will show whether upstream does it too.
@@ -132,5 +132,5 @@ Verified: with the toggle off, the 17 fogged marker sets and the structures, rui
 
 Also keeps the record of explored ground: upstream's reveal_all, meant for testing, saves "the whole world explored" as the fog record while it is on, so turning it off later leaves the map fully revealed. With reveal_all now an everyday setting, the real record is always saved. PATCHES.md describes the repair for an affected world.
 
-Follow-ups: Forge and other non-always-labelled markers lose their labels in crowded views (TASK-9). The 3D zoom sometimes changes after the reload: intermittent, in upstream's camera restore, not reproduced on demand.
+Follow-ups: Forge and other non-always-labelled markers lose their labels in crowded views (DRAFT-2). The 3D zoom sometimes changes after the reload: intermittent, in upstream's camera restore, not reproduced on demand.
 <!-- SECTION:FINAL_SUMMARY:END -->

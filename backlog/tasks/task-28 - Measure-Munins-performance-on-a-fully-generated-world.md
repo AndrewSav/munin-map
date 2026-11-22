@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-21T21:02:26Z'
-updated_date: '2026-11-22T19:39:11Z'
+updated_date: '2026-11-22T21:50:18Z'
 labels:
   - plugin
 dependencies: []
@@ -16,7 +16,7 @@ ordinal: 27000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-TASK-27 made a fully generated copy of the world on the test server: about 4.1 million objects, against about 270 thousand in the live copy. Munin walks every object on each world sweep, draws trees and rocks into the tiles, keeps a vegetation cache and builds marker lists, so a world explored much further than live today may cost the server far more. Live will get there as players explore, and TASK-26 and TASK-4 need the full world on the test server anyway. Measure what Munin costs on it, compared with the live copy, and decide whether anything needs fixing or whether a partial generation is the better test world.
+TASK-27 made a fully generated copy of the world on the test server: about 4.1 million objects, against about 270 thousand in the live copy. Munin walks every object on each world sweep, draws trees and rocks into the tiles, keeps a vegetation cache and builds marker lists, so a world explored much further than live today may cost the server far more. Live will get there as players explore, and DRAFT-7 and TASK-4 need the full world on the test server anyway. Measure what Munin costs on it, compared with the live copy, and decide whether anything needs fixing or whether a partial generation is the better test world.
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria

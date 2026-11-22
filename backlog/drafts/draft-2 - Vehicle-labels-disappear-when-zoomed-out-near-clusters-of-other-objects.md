@@ -1,5 +1,5 @@
 ---
-id: TASK-9
+id: DRAFT-2
 title: Vehicle labels disappear when zoomed out near clusters of other objects
 status: To Do
 assignee: []

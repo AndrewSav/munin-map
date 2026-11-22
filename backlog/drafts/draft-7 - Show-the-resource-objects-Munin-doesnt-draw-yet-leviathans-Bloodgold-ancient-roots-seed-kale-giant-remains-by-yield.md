@@ -1,5 +1,5 @@
 ---
-id: TASK-26
+id: DRAFT-7
 title: >-
   Show the resource objects Munin doesn't draw yet: leviathans, Bloodgold,
   ancient roots, seed kale, giant remains by yield

@@ -1,5 +1,5 @@
 ---
-id: TASK-30
+id: DRAFT-8
 title: 'Show what is inside locations: chest contents and loose items, from the save'
 status: To Do
 assignee: []

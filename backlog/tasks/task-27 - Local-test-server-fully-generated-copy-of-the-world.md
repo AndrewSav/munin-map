@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-21T10:23:00Z'
-updated_date: '2026-11-22T19:39:10Z'
+updated_date: '2026-11-22T21:50:18Z'
 labels:
   - tooling
 dependencies: []
@@ -16,7 +16,7 @@ ordinal: 26000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-The test world is a copy of live, so only the zones live players have visited exist in it. TASK-26 (resource objects in Mistlands, Ashlands and Deep North) and TASK-4 (comparing predicted ore with real ore) both need zones that nobody on live has reached. Upgrade World (JereKuusela, `zones_generate`) generates every zone of a world on the server; the whole world takes hours.
+The test world is a copy of live, so only the zones live players have visited exist in it. DRAFT-7 (resource objects in Mistlands, Ashlands and Deep North) and TASK-4 (comparing predicted ore with real ore) both need zones that nobody on live has reached. Upgrade World (JereKuusela, `zones_generate`) generates every zone of a world on the server; the whole world takes hours.
 
 Generate the whole world once on the test server with Munin switched off, so its sweeps, tiles and caches don't slow generation or fill up with half-generated state. Then keep the result as a snapshot, so the test server can run either a fresh copy of live or the fully generated world. Munin's performance on the full world is tested afterwards; if it struggles, a partial generation with Upgrade World's `biomes=`/`min=`/`max=` limits is the fallback. Fork tooling only: no product code and no upstream files.
 <!-- SECTION:DESCRIPTION:END -->
