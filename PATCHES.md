@@ -158,3 +158,30 @@ otherwise the popup has no builder line.
 
 How it differs from upstream: upstream sends the builder too, but shows it only on the player
 card's list of what a player built, not in the popups. No server change, no new settings.
+
+## TASK-18: Telegram group posts
+
+Munin can post to a Telegram group what upstream posts to a Discord webhook: the server going
+online and offline, players joining and leaving, and raids and invasions. Optionally it relays
+the game's chat (shouts, or all chat). A bot made with @BotFather posts; nothing written in the
+group reaches the game. Setup and settings: docs/ADVANCED.md, "Telegram".
+
+- **Online:** the server's name and address, with buttons to copy the address and, when turned
+  on, the server password and the user key, and a button to the map. The address can be set
+  (`telegram_post_address`) for a DNS name or a forwarded port.
+- **Offline:** the online post is struck through and loses its buttons, and an offline post
+  follows. Only on a proper shutdown; Munin waits at most 3 s for it.
+- **Raids and invasions:** with a button to the spot on the map.
+- **Players in `hidden_players`** are left out of every Telegram post, including the names near
+  a raid. Kinds listed in `telegram_post_silent` arrive without a notification sound.
+- Posts go out in the background, so a slow or unreachable Telegram never holds up the game.
+
+How it differs from upstream:
+- Upstream has Discord only. Discord is unchanged here and works as before, alone or with
+  Telegram.
+- New settings: `telegram_bot_token`, `telegram_chat_id`, `telegram_topic_id`,
+  `telegram_world_events`, `telegram_post_chat`, `telegram_post_address`,
+  `telegram_post_password`, `telegram_post_user_key`, `telegram_post_silent`.
+- The Telegram posts differ from the Discord ones: the password is posted only when turned on,
+  the port shown is read from the game's `-port` (the Discord post shows `:1`), hidden players
+  are never named, and chat can be relayed (Discord gets no chat).

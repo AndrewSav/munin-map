@@ -297,6 +297,7 @@ namespace MuninMap
                 "Show where offline players were last seen in the stats panel.").Value;
             Patches.Access.Bind(config);   // patches: TASK-20
             Patches.Seed.Bind(config);   // patches: TASK-15
+            Patches.Telegram.Bind(config);   // patches: TASK-18
 
             string hidden = config.Bind("User", "hidden_players", "",
                 "Character names, comma separated, never shown on the map, in the stats or in the event feed (an admin, an alt).").Value;

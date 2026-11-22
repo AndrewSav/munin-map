@@ -264,6 +264,7 @@ namespace MuninMap
 
         public void NotifyOnline()
         {
+            Patches.Telegram.Online();   // patches: TASK-18
             try
             {
                 string ip = AccessTools.Method(typeof(ZNet), "GetServerIP")?.Invoke(ZNet.instance, new object[] { })?.ToString() ?? "";
@@ -274,6 +275,7 @@ namespace MuninMap
 
         public void NotifyOffline()
         {
+            Patches.Telegram.Offline();   // patches: TASK-18
             try { discordWebHook.SendMessage($"🎮 **{serverInfo["serverName"]}** is *offline* 🔴"); } catch { }
         }
 
@@ -281,6 +283,7 @@ namespace MuninMap
         // map's address is set
         public static void PostWorldEvent(string message, float? x = null, float? z = null)
         {
+            Patches.Telegram.WorldEvent(message, x, z);   // patches: TASK-18
             if (!MuninConfig.DISCORD_WORLD_EVENTS || string.IsNullOrEmpty(MuninConfig.DISCORD_WEBHOOK)) return;
             try
             {
@@ -296,6 +299,7 @@ namespace MuninMap
 
         public void NotifyJoin(ZNetPeer peer)
         {
+            Patches.Telegram.Join(peer.m_playerName);   // patches: TASK-18
             string message = $"player _{peer.m_playerName}_ joined";
             discordWebHook.SendMessage($"🎮 **{serverInfo["serverName"]}** {message}");
             Events.Add("join", peer.m_playerName, "joined the server");
@@ -304,6 +308,7 @@ namespace MuninMap
 
         public void NotifyLeave(ZNetPeer peer)
         {
+            Patches.Telegram.Leave(peer.m_playerName);   // patches: TASK-18
             string message = $"player _{peer.m_playerName}_ left";
             discordWebHook.SendMessage($"🎮 **{serverInfo["serverName"]}** {message}");
             Announce.Enqueue(message, feed: false);   // in game only: the feed has the leave event below

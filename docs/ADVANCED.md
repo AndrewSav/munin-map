@@ -29,6 +29,15 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Server | `discord_webhook` | | Discord webhook URL for events |
 | Server | `discord_world_events` | true | also post raids and invasions, with a link to the spot |
 | Server | `discord_invite_url` | | Discord invite shown on the page |
+| Server | `telegram_bot_token` | | Telegram bot token, to post the same notices to a Telegram group; see [Telegram](#telegram) |
+| Server | `telegram_chat_id` | | the Telegram group to post to |
+| Server | `telegram_topic_id` | | optional: the topic to post in, for a group with topics |
+| Server | `telegram_world_events` | true | also post raids and invasions to Telegram, with a button to the spot |
+| Server | `telegram_post_chat` | off | relay the game's chat to Telegram: `off`, `shouts` or `all` |
+| Server | `telegram_post_address` | | the address on the online post; empty: detected |
+| Server | `telegram_post_password` | false | a button to copy the server password on the online post |
+| Server | `telegram_post_user_key` | false | a button to copy the user key on the online post |
+| Server | `telegram_post_silent` | | kinds of Telegram post sent without sound: `online`, `offline`, `join`, `leave`, `raid`, `chat` |
 | Server | `event_log` | true | write events to `events.jsonl` |
 | Server | `max_messages` | 100 | how many events to keep in memory for the page |
 | Server | `show_vehicles` | true | report boats and carts |
@@ -354,3 +363,64 @@ restart needed. (A copy of the page is also built into the DLL, used when the
 * `tools/docker-compose.test.yml`: a real dedicated server in Docker with a
   copy of your world. Set `reveal_all = true` in its config and turn on
   Spoilers in the page's Settings to see the whole map.<!-- patches: TASK-1 -->
+
+## Telegram<!-- patches: TASK-18 -->
+
+Munin can post to a Telegram group what it posts to a Discord webhook: the
+server coming online and going offline, players joining and leaving, and
+raids and invasions starting and ending. Optionally it relays the game's chat
+too. It only posts: nothing written in the group reaches the game. Discord and
+Telegram can be used together or apart.
+
+**Setting up:**
+
+1. In Telegram, talk to **@BotFather**: `/newbot`, pick a name, and copy the
+   **token** it gives you (`123456789:ABC...`). The token is the bot: whoever
+   has it can post as it, so keep it out of anything you share. Use a bot that
+   nothing else reads.
+2. Add the bot to your group.
+3. Find the group's **chat ID**:
+   1. In the group, send `/start@<your bot's username>`. A plain
+      `@<bot> hello` is not enough: a bot only sees commands meant for it and
+      replies to its own messages. Removing the bot and adding it back also
+      works.
+   2. Open `https://api.telegram.org/bot<token>/getUpdates` in a browser.
+      The reply has `"chat":{"id":-100...,"title":"..."}`. That number is the
+      chat ID.
+   3. Still `"result":[]`? Something else is reading this bot's updates
+      (another program with the same token), or the bot has a webhook set
+      (`getWebhookInfo` shows its `url`).
+4. Set `telegram_bot_token` and `telegram_chat_id`, and restart the server.
+   For a group with topics, set `telegram_topic_id` to post in one topic.
+
+If Telegram upgrades the group to a supergroup (it does when some settings
+change), the chat ID changes to a new `-100...` number. Munin's log then says
+which number to use.
+
+**What it posts:**
+
+* **Online:** the server's name and address, with buttons to copy the
+  address and, if you turn them on, the password (`telegram_post_password`) and
+  the user key (`telegram_post_user_key`, when `user.token` exists), and to
+  open the map (when `map_url` is set). The address is detected (the public IP
+  and the game port); set `telegram_post_address` to show a DNS name or a
+  forwarded port instead: a host name alone gets the game port added, a
+  `host:port` is shown as given. Anyone in the group can copy what the buttons
+  hold, so turn the password and key on only for a group of your players.
+* **Offline:** the online post is struck through and loses its buttons, and an
+  offline post follows. This only happens when the server shuts down properly:
+  a killed or crashed server never sends it (the same goes for Discord). Munin
+  waits at most 3 seconds for it.
+* **Joins and leaves,** and **raids and invasions** with a button to the spot
+  on the map (`telegram_world_events`).
+* **Chat**, with `telegram_post_chat`: `shouts`, or `all` for normal chat too.
+  Normal chat only reaches players nearby in the game, so `all` shows it to the
+  whole group. Whispers are never posted.
+
+Players in `hidden_players` are left out: no joins, leaves or chat of theirs,
+and they're not named near a raid. With `telegram_post_silent` the kinds you
+list arrive without a notification sound, for a busy group.
+
+Posts are sent in the background, a few at a time, as Telegram allows; a
+slow or unreachable Telegram never holds up the game. Failures are written to
+the server log, at most once a minute.
