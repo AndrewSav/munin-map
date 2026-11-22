@@ -172,6 +172,8 @@ group reaches the game. Setup and settings: docs/ADVANCED.md, "Telegram".
 - **Offline:** the online post is struck through and loses its buttons, and an offline post
   follows. Only on a proper shutdown; Munin waits at most 3 s for it.
 - **Raids and invasions:** with a button to the spot on the map.
+- **Chat:** shouts, or all chat; whispers never. A player's game sends chat to the server only
+  when other players are online to receive it, so a player alone sends no chat to post.
 - **Players in `hidden_players`** are left out of every Telegram post, including the names near
   a raid. Kinds listed in `telegram_post_silent` arrive without a notification sound.
 - Posts go out in the background, so a slow or unreachable Telegram never holds up the game.

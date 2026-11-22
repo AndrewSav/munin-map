@@ -415,7 +415,9 @@ which number to use.
   on the map (`telegram_world_events`).
 * **Chat**, with `telegram_post_chat`: `shouts`, or `all` for normal chat too.
   Normal chat only reaches players nearby in the game, so `all` shows it to the
-  whole group. Whispers are never posted.
+  whole group. Whispers are never posted. A player's game sends chat to the
+  server only when other players are online to receive it, so a player alone on
+  the server sends Munin no chat, and none is posted.
 
 Players in `hidden_players` are left out: no joins, leaves or chat of theirs,
 and they're not named near a raid. With `telegram_post_silent` the kinds you

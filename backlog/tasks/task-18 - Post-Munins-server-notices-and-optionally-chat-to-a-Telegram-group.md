@@ -1,11 +1,11 @@
 ---
 id: TASK-18
 title: Post Munin's server notices, and optionally chat, to a Telegram group
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-20T05:18:00Z'
-updated_date: '2026-11-22T19:47:58Z'
+updated_date: '2026-11-22T21:36:45Z'
 labels:
   - plugin
 dependencies: []
@@ -70,7 +70,7 @@ In-game chat is already read on the server: the `RouteRPC`/`HandleRoutedRPC` pat
 - [x] #1 A plan is agreed with the user before implementation, settling: all chat or shouts only for the chat relay, whether the password is ever posted, topic support, and the exact message wording and emoji
 - [x] #2 With a bot token and chat ID set, Munin posts to the group the notices the Discord webhook posts: online, offline, player joined, player left, and raid and invasion start and end (with the map link when map_url is set)
 - [x] #3 Each kind of notice carries its own emoji, so Munin's posts stand apart from people's messages in the group
-- [ ] #4 An option, off by default, relays in-game chat to the group with the player's name and message; whispers and Munin's chat commands are never relayed
+- [x] #4 An option, off by default, relays in-game chat that reaches the server to the group with the player's name and message; whispers and Munin's chat commands are never relayed (checked in the code; not tried with two players online, since chat reaches the server only then, which the docs say)
 - [x] #5 Text from players is escaped for Telegram's formatting, so names or messages with markup characters post as typed
 - [x] #6 Players in hidden_players are left out of Telegram posts
 - [x] #7 Neither the server password nor the user key is posted to Telegram unless an admin turns that on, each with its own setting; the user key only when the user.token file exists and is not empty
@@ -202,4 +202,14 @@ Silent posts (2026-11-23): with `telegram_post_silent = online,join,leave,raid` 
 Settings off (2026-11-23): server with a password and `user.token` present, `telegram_post_password` and `telegram_post_user_key` false: the card had only the Address and Open map buttons (confirmed by the user).
 
 decision-2 (2026-11-23): behaviour in three new files under src/Patches/; upstream files only gain seven marked one-line calls (Config.cs, MuninMap.cs, MapDataServer.cs) plus a docs section at the end of docs/ADVANCED.md with a marker on its heading (table rows cannot carry one); commits 4491518 and 91eac44 on `telegram-notes`, both "TASK-18:", to be squashed into one when merged into `patches`.
+
+Criterion #4 reworded with the user (2026-11-23): chat relay checked in the code (telegram_post_chat defaults to off and falls back to off; HandleChatCommand takes Munin's commands out before AddMessage; whispers are kept out before AddMessage and again in Telegram.Chat, which posts shouts, and normal chat only with all) but not tried with two players, the only case in which chat reaches the server. docs/ADVANCED.md (Telegram, Chat) and the PATCHES.md entry now say chat is posted only while two or more players are online. If the relay doesn't work on a server with players, that is a defect task, not a follow-up here.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Munin posts to a Telegram group what upstream posts to its Discord webhook: the server going online (a card with the address, optional password and user key as copy buttons, and a map button) and offline (the card struck through), players joining and leaving, and raids and invasions with a button to the spot on the map; optionally it relays the game's chat (shouts, or all chat; never whispers or Munin's chat commands). New code in src/Patches/Telegram.cs, TelegramFormat.cs and TelegramSender.cs; upstream gets seven call lines marked `// patches: TASK-18`, and Discord is unchanged. Posts go out in the background, rate-limited and never blocking the game; hidden players are never named; kinds listed in telegram_post_silent arrive without sound; a supergroup topic can be set (telegram_topic_id). Settings and setup (making the bot, finding the chat ID) are in docs/ADVANCED.md, and PATCHES.md has the entry.
+
+Verified with the user on a test server: the online card (copy buttons, the address override, no Password button without a password or with the setting off), the struck-through card and offline post, joins and leaves, hidden players left out, a raid start and end (started with a throwaway plugin), silent posts, and the formatting checks. Not tried live: invasions (the same path as raids, covered by the format check), posting into a supergroup topic, and the chat relay, which needs two players online, the only case in which the game's chat reaches the server; it is checked in the code and documented. The Telegram-to-game direction is DRAFT-1, not decided.
+<!-- SECTION:FINAL_SUMMARY:END -->
