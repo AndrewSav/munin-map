@@ -1,11 +1,11 @@
 ---
 id: TASK-4.2
 title: 'Standalone ore-export CLI: fast and background generation from a seed'
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T06:02:37Z'
-updated_date: '2026-11-22T13:07:33Z'
+updated_date: '2026-11-22T19:14:34Z'
 labels:
   - tooling
 dependencies: []
@@ -50,7 +50,7 @@ Ref: TASK-4.1 (patches-tools/zonegen: ZoneGen.cs, run.ps1, bench.ps1), doc-2 'Me
 - [x] #17 Each process writes its deposits as it goes: a zone is written once it and its neighbours are generated, so a stopped or killed run keeps everything written so far
 - [x] #18 zonegen run --resume continues a stopped run: zones already written are kept and skipped, the rest are generated, and the output is the same as an uninterrupted run apart from generation-order differences near the skipped zones
 - [x] #19 A process drops the objects of zones that are written and have no ungenerated neighbour left; its effect on memory and accuracy is measured against keeping them and recorded
-- [ ] #20 The main input is a copy of a world save: the world folder of the current chunked format (_main.N.fwl2, .db2, .chunks, .ok and .chunk files, one save number) or the older .fwl and .db pair; the tool generates the zones that world has not generated yet and keeps its own locations. A seed name plus world-generation version (default 2) is accepted instead for a world known to be fresh. A utility command prints, from a save, the seed and world-generation version, and for the current format the location version (from .db2), next to the location version of the installed game, and warns when they differ (the server re-plans unplaced locations on its next start); for the older format, which the game converts on load, the run itself reports a re-plan
+- [x] #20 The main input is a copy of a world save: the world folder (_main.N.fwl2, .db2, .chunks, .ok and .chunk files, one save number); the tool generates the zones that world has not generated yet and keeps its own locations. A world in the older .fwl/.db format is refused with how to convert it (the game only ever saves in the folder format and converts an older world when it loads it). A seed name plus world-generation version (default 2) is accepted instead for a world known to be fresh. A utility command prints, from a save, the seed, world-generation version and location version, next to the location version of the installed game, and warns when they differ (the server re-plans unplaced locations on its next start)
 <!-- AC:END -->
 
 ## Definition of Done
@@ -102,4 +102,20 @@ First attempt: only 186-240 zones/min (about 7 h): slow mode kept the server's f
 Live test, server frames over the whole run (sweep log, Munin's per-sweep longest frame and fps): last 100 sweeps before: median 4.4 ms, 95th percentile 7.0, max 17.7, 9 over 5.5 ms, fps 29-30; during the run (45 sweeps): 4.3, 6.3, 6.4, 4 over 5.5 ms, fps 30; after (9 sweeps): 4.3, 6.3, 6.3, 1, fps 30. No measurable effect.
 Windows slow mode found broken by a final check (2026-11-23): one core at Idle priority, uncapped: the main thread spun at about 600 fps waiting for terrain and starved Unity's heightmap thread (Windows schedules strictly by thread priority; Linux ignores per-thread priorities for a normal user, so the live test was fine): about 100 zones/min and zones failing after 120 s. Fixed in the plugin: a frame in which every zone in progress is still waiting sleeps 2 ms. The probe result is now cached by the server executable when the install has no Steam manifest (checked: no probe server on the second run). build.sh packs dist/zonegen-0.1.0-win-x64.zip and -linux-x64.tar.gz (about 6.5 MB each, with the README).
 Not tested: the older .fwl/.db save format (no such world at hand; the current game writes only the folder format and converts older worlds on load).
+
+Older .fwl/.db input dropped (2026-11-23, with the user): the 1.0.21 server has one save path (ZNet.SaveWorldThread), which writes the folder format, and only reads the older pair (LoadOldWorld), so any world the current server has loaded is in the folder format after its first save; the tool now refuses a .fwl/.db (or a folder holding one) with that advice, instead of carrying an untested code path.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+zonegen (patches-tools/zonegen) turns the TASK-4.1 spike into a standalone tool that predicts a world's ore deposits by generating a copy of it headless. One self-contained file per platform (Windows x64, Linux x64; build.sh packs about 6.5 MB bundles) with the ZoneGen BepInEx plugin built in. --update is opt-in. Output: one CSV of deposits (or any prefab list) with a header of seed, versions and counts.
+
+Modes: fast (processes for 80% of the CPU threads, capped by free memory) and slow (one process at the lowest priority on one core, for next to a game server). Each process writes zones as it goes; --resume continues a stopped run. Safety: a container-aware memory guard, oom_score_adj 1000 on Linux and a job object on Windows so the generator gives way first, servers quit when the tool dies, the given save is only read, own ports and BepInEx folder per process.
+
+Accuracy 99.1-99.3% against the TASK-27 snapshot in every run, seed-only included (its location plan matches the save 99.93%). Memory 2.6-3.4 GB per process at the peak, mostly game assets, whatever the process count. Memory-guard, OOM-preference, kill and resume tests passed in a 6 GB container.
+
+Fixed on the way: an empty world name made the server create a random world (now checked); slow mode idled under the frame cap (live test) and starved the terrain thread on Windows; libssl missing on bare Linux now reported with the install line.
+
+Not done here: Munin reading the file (TASK-4), and the TASK-4 method decision (criterion #8), which the user keeps open (method 1 is still a candidate).
+<!-- SECTION:FINAL_SUMMARY:END -->

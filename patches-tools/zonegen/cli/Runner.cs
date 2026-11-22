@@ -266,7 +266,7 @@ internal static class Runner
         var game = Probe.GameInfo(inst);
         string seedName = meta?.SeedName ?? seed;
         int gv = meta != null ? Math.Max(meta.GenVersion, 0) : genVer;
-        Install.Say($"world {world}: seed {seedName}, world-generation version {gv}" + (save != null ? $", save {(save.Chunked ? save.SaveNumber.ToString() : "(older format)")}" : " (from the seed, no save)"));
+        Install.Say($"world {world}: seed {seedName}, world-generation version {gv}" + (save != null ? $", save {save.SaveNumber}" : " (from the seed, no save)"));
         Install.Say($"game: Valheim {game.build}, server build {inst.BuildId() ?? "?"}, location version {game.locationVersion}" + (saveLoc.HasValue ? $"; the save's location version {saveLoc.Value.locationVersion}" : ""));
         if (saveLoc.HasValue && saveLoc.Value.locationVersion != game.locationVersion)
             Install.Say("note: the location versions differ, so the unplaced locations are planned again on load, around the placed ones, as the world's own server does on its next start with this game version");
@@ -307,7 +307,7 @@ internal static class Runner
             {
                 string inDir = Path.Combine(runDir, "input");
                 save.CopyTo(inDir);
-                string rel = save.Chunked ? save.WorldName : save.WorldName + ".fwl";
+                string rel = save.WorldName;
                 File.WriteAllText(Path.Combine(runDir, "input.txt"), rel);
                 save = SaveInput.Find(Path.Combine(inDir, rel));
             }
@@ -386,7 +386,7 @@ internal static class Runner
         var hdr = new StringBuilder();
         void H(string k, object v) => hdr.Append("# ").Append(k).Append(": ").Append(v).Append('\n');
         H("tool", "zonegen " + Program.ToolVersion);
-        H("input", save != null ? $"world save copy ({(save.Chunked ? "save " + save.SaveNumber : "older format")})" : "seed only");
+        H("input", save != null ? $"world save copy (save {save.SaveNumber})" : "seed only");
         H("world", world);
         H("seed", seedName);
         H("world_generation_version", gv);

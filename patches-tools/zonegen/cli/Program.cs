@@ -19,9 +19,10 @@ Usage:
   zonegen setup [--update] [--own-server]
 
 Input (run):
-  --save PATH          a copy of the world save: the world's folder (current format: _main.N.fwl2,
-                       .db2, .chunks, .ok and .chunk files) or its .fwl file (older format, with .db
-                       beside it). The tool copies it; the files given are never written.
+  --save PATH          a copy of the world save: the world's folder (worlds_local/<world>, with
+                       _main.N.fwl2, .db2, .chunks, .ok and .chunk files); an older .fwl/.db world is
+                       converted by starting the current server on it once. The tool copies it; the
+                       files given are only read.
   --seed NAME          instead of a save, for a world known to be fresh: its seed name
   --gen-version N      world-generation version for --seed (default 2: every world since it existed)
 

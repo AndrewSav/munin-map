@@ -39,11 +39,12 @@ as between two parallel runs.
 
 ### The input
 
-- **A copy of the world save (recommended).** Give the world's folder (current format:
-  `worlds_local/<world>/` with `_main.N.fwl2`, `.db2`, `.chunks`, `.ok` and the `.chunk` files) or,
-  for the older format, its `.fwl` (with the `.db` beside it). The tool copies the newest complete
-  save (the one with an `.ok` file) and checks it wasn't replaced during the copy, so it can be
-  pointed at the save folder of a running server. The files given are only read.
+- **A copy of the world save (recommended).** Give the world's folder, `worlds_local/<world>/`
+  with `_main.N.fwl2`, `.db2`, `.chunks`, `.ok` and the `.chunk` files. The tool copies the newest
+  complete save (the one with an `.ok` file) and checks it wasn't replaced during the copy, so it
+  can be pointed at the save folder of a running server. The files given are only read. A world
+  still in the older `.fwl`/`.db` format isn't taken: the game only ever saves in the folder format
+  and converts an older world when it loads it, so start the current server on it once.
 - **A seed** (`--seed NAME`, optionally `--gen-version N`, default 2) for a world you know is
   fresh. It is exact only if the world's location plan was never redone: a game update that raises
   the game's location version makes a server plan the world's unplaced locations again, around the
