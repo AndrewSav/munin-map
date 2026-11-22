@@ -6,7 +6,8 @@
 #   Run workflow (patches)   work out the next patches-X.Y.Z-N tag, create and push it, then build
 #                            and publish it here (a tag pushed with this run's token starts no new run)
 #
-# Releases carry fixed asset names, so
+# Releases carry fixed asset names (MuninMap.zip, ore-extract-win-x64.zip,
+# ore-extract-linux-x64.tar.gz, SHA256SUMS), so
 #   https://github.com/<owner>/<repo>/releases/latest/download/MuninMap.zip
 # is always the newest build. Tag rules and the version stamp: backlog decision-1.
 name: Fork build and release
@@ -70,7 +71,17 @@ jobs:
           bash build.sh --managed "$GITHUB_WORKSPACE/valheim-managed"
           cd dist
           mv MuninMap-*.zip MuninMap.zip
-          sha256sum MuninMap.zip > SHA256SUMS
+
+      # TASK-4.3: ore-extract, from the same commit, against the game and BepInEx assemblies
+      # build.sh has just put in libs/; its version is the release stamp (empty: a local version)
+      - name: Build ore-extract
+        env:
+          OREEXTRACT_VERSION: ${{ steps.rel.outputs.stamp }}
+        run: |
+          bash ore-extract/build.sh
+          cp ore-extract/dist/ore-extract-win-x64.zip ore-extract/dist/ore-extract-linux-x64.tar.gz dist/
+          cd dist
+          sha256sum MuninMap.zip ore-extract-win-x64.zip ore-extract-linux-x64.tar.gz > SHA256SUMS
           cat SHA256SUMS
 
       - name: Check the version stamp
@@ -80,6 +91,8 @@ jobs:
           dll=dist/pkg/plugins/MuninMap/MuninMap.dll
           { strings -a "$dll"; strings -a -el "$dll"; } | grep -F "${{ steps.rel.outputs.stamp }}" \
             || { echo "::error::MuninMap.dll does not carry ${{ steps.rel.outputs.stamp }}"; exit 1; }
+          v=$(ore-extract/dist/linux-x64/ore-extract version)
+          [ "$v" = "${{ steps.rel.outputs.stamp }}" ] || { echo "::error::ore-extract says $v, not ${{ steps.rel.outputs.stamp }}"; exit 1; }
 
       - name: Push the new tag
         if: github.event_name == 'workflow_dispatch'
@@ -95,12 +108,17 @@ jobs:
           [ "${{ github.event_name }}" = "workflow_dispatch" ] || git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
           git tag -l --format='%(contents)' "$tag" > notes.md
           [ -s notes.md ] || echo "Munin Map ${{ steps.rel.outputs.version }} with this fork's changes (see PATCHES.md)." > notes.md
-          gh release create "$tag" dist/MuninMap.zip dist/SHA256SUMS --title "$tag" --notes-file notes.md --latest --verify-tag
+          # every asset or none: a missing one stops the run before the release exists
+          assets="dist/MuninMap.zip dist/ore-extract-win-x64.zip dist/ore-extract-linux-x64.tar.gz dist/SHA256SUMS"
+          for f in $assets; do [ -s "$f" ] || { echo "::error::$f is missing; not publishing"; exit 1; }; done
+          gh release create "$tag" $assets --title "$tag" --notes-file notes.md --latest --verify-tag
 
-      - name: Keep the zip as a workflow artifact
+      - name: Keep the zips as a workflow artifact
         uses: actions/upload-artifact@v6
         with:
           name: MuninMap-${{ steps.rel.outputs.tag || github.sha }}
           path: |
             dist/MuninMap.zip
+            dist/ore-extract-win-x64.zip
+            dist/ore-extract-linux-x64.tar.gz
             dist/SHA256SUMS

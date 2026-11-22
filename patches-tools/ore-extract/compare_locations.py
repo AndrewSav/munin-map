@@ -1,4 +1,4 @@
-"""Compare a location plan written by `zonegen run --locations FILE` with the plan stored in a world
+"""Compare a location plan written by `ore-extract run --locations FILE` with the plan stored in a world
 save (TASK-4.2 accuracy check for the seed-only input).
 
 Usage: python -I compare_locations.py LOCATIONS.csv WORLD_DIR [--tol METRES]

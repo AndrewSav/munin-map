@@ -7,7 +7,7 @@ using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
 
-namespace ZoneGenCli;
+namespace OreExtractCli;
 
 internal sealed class Install
 {
@@ -38,7 +38,7 @@ internal sealed class Install
         i.ManagedServer = sd == null && found == null;
         i.ServerDir = Path.GetFullPath(sd ?? found ?? Path.Combine(i.WorkDir, "server"));
         if (sd != null) i.ServerSource = "--server-dir";
-        else if (found == null) i.ServerSource = "zonegen's own install";
+        else if (found == null) i.ServerSource = "ore-extract's own install";
         // a server that has BepInEx brings its own copy: use it rather than download one
         string core = Path.Combine(i.ServerDir, "BepInEx", "core", "BepInEx.Preloader.dll");
         string loader = IsWindows ? Path.Combine(i.ServerDir, "winhttp.dll") : Path.Combine(i.ServerDir, "doorstop_libs", "libdoorstop_x64.so");
@@ -97,10 +97,10 @@ internal sealed class Install
 
     private static string DefaultWorkDir()
     {
-        if (IsWindows) return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "zonegen");
+        if (IsWindows) return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ore-extract");
         string xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
         string home = Environment.GetEnvironmentVariable("HOME") ?? "/tmp";
-        return Path.Combine(string.IsNullOrEmpty(xdg) ? Path.Combine(home, ".local", "share") : xdg, "zonegen");
+        return Path.Combine(string.IsNullOrEmpty(xdg) ? Path.Combine(home, ".local", "share") : xdg, "ore-extract");
     }
 
     public void EnsureAll(bool update = false)
@@ -114,9 +114,9 @@ internal sealed class Install
         else
         {
             CheckExistingServer();
-            if (update) Say($"--update: the server at {ServerDir} isn't zonegen's own install, so it isn't updated here; update it the way it is normally updated (or use --own-server)");
+            if (update) Say($"--update: the server at {ServerDir} isn't ore-extract's own install, so it isn't updated here; update it the way it is normally updated (or use --own-server)");
         }
-        Say($"server: {ServerDir} ({ServerSource}, build {BuildId() ?? "?"}); BepInEx: {(BepInExReused ? "the server's own" : $"{BepInExVersion} downloaded by zonegen")}");
+        Say($"server: {ServerDir} ({ServerSource}, build {BuildId() ?? "?"}); BepInEx: {(BepInExReused ? "the server's own" : $"{BepInExVersion} downloaded by ore-extract")}");
     }
 
     // ---- BepInEx ----
@@ -238,7 +238,7 @@ internal sealed class Install
     // ---- the plugin, embedded in this tool ----
     public static byte[] PluginBytes()
     {
-        using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("ZoneGen.dll") ?? throw new ToolError("plugin missing from this build");
+        using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("OreExtract.dll") ?? throw new ToolError("plugin missing from this build");
         using var ms = new MemoryStream();
         s.CopyTo(ms);
         return ms.ToArray();
@@ -246,7 +246,7 @@ internal sealed class Install
 
     // ---- helpers ----
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(10) };
-    static Install() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("zonegen/" + Program.ToolVersion);
+    static Install() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("ore-extract/" + Program.ToolVersion);
 
     private static void Download(string url, string path)
     {

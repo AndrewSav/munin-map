@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TASK-4.1 spike: a client-free world generator for the test server. Fork tooling, not shipped. -->
+<!-- TASK-4.1/4.3: the OreExtract BepInEx plugin, which drives the generation inside a dedicated server started by the ore-extract CLI (../cli), where it is embedded. Not loaded by Munin. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>9.0</LangVersion>
-    <AssemblyName>ZoneGen</AssemblyName>
+    <AssemblyName>OreExtract</AssemblyName>
     <Optimize>true</Optimize>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <NuGetAudit>false</NuGetAudit>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <NoWarn>$(NoWarn);CS0618</NoWarn>
-    <Libs>$(MSBuildThisFileDirectory)..\..\..\libs\</Libs>
+    <Libs>$(MSBuildThisFileDirectory)..\..\libs\</Libs>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3"><PrivateAssets>all</PrivateAssets></PackageReference>

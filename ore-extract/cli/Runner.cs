@@ -1,11 +1,11 @@
 // Runs the generation: one or more dedicated server processes, each with its own BepInEx folder
-// (holding only the ZoneGen plugin), its own copy of the world, its own ports and a share of the
+// (holding only the OreExtract plugin), its own copy of the world, its own ports and a share of the
 // zones; watches them, guards memory, and joins their outputs into one file.
 using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
-namespace ZoneGenCli;
+namespace OreExtractCli;
 
 internal sealed class Worker
 {
@@ -62,7 +62,7 @@ internal sealed class Worker
         CopyDir(Path.Combine(inst.BepInExDir, "BepInEx", "core"), Path.Combine(w.BepRoot, "BepInEx", "core"));
         Directory.CreateDirectory(Path.Combine(w.BepRoot, "BepInEx", "plugins"));
         Directory.CreateDirectory(Path.Combine(w.BepRoot, "BepInEx", "config"));
-        File.WriteAllBytes(Path.Combine(w.BepRoot, "BepInEx", "plugins", "ZoneGen.dll"), plugin);
+        File.WriteAllBytes(Path.Combine(w.BepRoot, "BepInEx", "plugins", "OreExtract.dll"), plugin);
         Directory.CreateDirectory(w.SaveDir);
         Directory.CreateDirectory(w.OutDir);
         return w;
@@ -78,7 +78,7 @@ internal sealed class Worker
         };
         string preloader = Path.Combine(BepRoot, "BepInEx", "core", "BepInEx.Preloader.dll");
         string pw = "zg" + Guid.NewGuid().ToString("N")[..10];
-        foreach (var x in new[] { "-nographics", "-batchmode", "-name", "zonegen-" + Index, "-port", Port.ToString(), "-world", world,
+        foreach (var x in new[] { "-nographics", "-batchmode", "-name", "ore-extract-" + Index, "-port", Port.ToString(), "-world", world,
                      "-password", pw, "-public", "0", "-savedir", SaveDir, "-logfile", Path.Combine(Dir, "server.log") })
             psi.ArgumentList.Add(x);
         psi.Environment["SteamAppId"] = "892970";
@@ -97,9 +97,9 @@ internal sealed class Worker
             psi.Environment["LD_LIBRARY_PATH"] = Path.Combine(inst.ServerDir, "linux64") + ":" + dlibs;
             psi.Environment["LD_PRELOAD"] = Path.Combine(dlibs, "libdoorstop_x64.so");
         }
-        psi.Environment["ZONEGEN_PARENT_PID"] = Environment.ProcessId.ToString();   // the server quits if this tool is gone (Linux)
-        psi.Environment["ZONEGEN_OUT"] = OutDir;
-        psi.Environment["ZONEGEN_TAG"] = Tag;
+        psi.Environment["OREEXTRACT_PARENT_PID"] = Environment.ProcessId.ToString();   // the server quits if this tool is gone (Linux)
+        psi.Environment["OREEXTRACT_OUT"] = OutDir;
+        psi.Environment["OREEXTRACT_TAG"] = Tag;
         foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
         Proc = Process.Start(psi) ?? throw new ToolError("could not start the server");
         Proc.OutputDataReceived += (_, e) => { };
@@ -204,7 +204,7 @@ internal static class Probe
         string runDir = Path.Combine(inst.WorkDir, "runs", "probe-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         var w = Worker.Prepare(runDir, 0, inst, Install.PluginBytes());
         using var prot = new Protection(8L << 30);
-        w.Start(inst, "zonegen_probe", new Dictionary<string, string> { ["ZONEGEN_MODE"] = "probe" }, ProcessPriorityClass.BelowNormal, null, prot);
+        w.Start(inst, "oreextract_probe", new Dictionary<string, string> { ["OREEXTRACT_MODE"] = "probe" }, ProcessPriorityClass.BelowNormal, null, prot);
         var sw = Stopwatch.StartNew();
         while (w.Info == null && !w.Exited && sw.Elapsed.TotalSeconds < 300) { Thread.Sleep(500); w.Poll(); }
         w.Poll();
@@ -234,7 +234,7 @@ internal static class Runner
         if (resumeDir == null) return Run(a, null, 0);
         resumeDir = Path.GetFullPath(resumeDir);
         string runFile = Path.Combine(resumeDir, "run.txt");
-        if (!File.Exists(runFile)) throw new ToolError($"{resumeDir} is not a zonegen run folder (no run.txt)");
+        if (!File.Exists(runFile)) throw new ToolError($"{resumeDir} is not a ore-extract run folder (no run.txt)");
         var lines = File.ReadAllLines(runFile);
         Environment.CurrentDirectory = lines[0];
         int n = int.Parse(lines[1]);
@@ -262,7 +262,7 @@ internal static class Runner
         SaveInput save = savePath != null ? SaveInput.Find(resumeDir != null ? Path.Combine(resumeDir, "input", File.ReadAllText(Path.Combine(resumeDir, "input.txt")).Trim()) : savePath) : null;
         SaveInput.Meta meta = save?.ReadMeta();
         var saveLoc = save?.ReadLocationVersion();
-        string world = save?.WorldName ?? "zonegen_seed";
+        string world = save?.WorldName ?? "oreextract_seed";
 
         var game = Probe.GameInfo(inst);
         string seedName = meta?.SeedName ?? seed;
@@ -319,16 +319,16 @@ internal static class Runner
         {
             // slow mode is held back by its CPU priority and core limit, not by the frame: a frame cap and
             // a small budget only left its own core idle (TASK-4.2 live test: 186-240 zones/min)
-            ["ZONEGEN_MODE"] = "generate", ["ZONEGEN_BUDGET_MS"] = "30", ["ZONEGEN_WINDOW"] = "8",
-            ["ZONEGEN_UNCAP"] = "1", ["ZONEGEN_AHEAD"] = "16", ["ZONEGEN_NOSAVE"] = "1", ["ZONEGEN_NODUNGEON"] = "1",
-            ["ZONEGEN_VEGCUT"] = "auto", ["ZONEGEN_DROP"] = a.Has("--no-drop") ? "0" : "1",
+            ["OREEXTRACT_MODE"] = "generate", ["OREEXTRACT_BUDGET_MS"] = "30", ["OREEXTRACT_WINDOW"] = "8",
+            ["OREEXTRACT_UNCAP"] = "1", ["OREEXTRACT_AHEAD"] = "16", ["OREEXTRACT_NOSAVE"] = "1", ["OREEXTRACT_NODUNGEON"] = "1",
+            ["OREEXTRACT_VEGCUT"] = "auto", ["OREEXTRACT_DROP"] = a.Has("--no-drop") ? "0" : "1",
         };
-        if (prefabs != null) env["ZONEGEN_PREFABS"] = prefabs;
-        if (save == null) { env["ZONEGEN_SEED"] = seed; env["ZONEGEN_GENVER"] = genVer.ToString(); }
+        if (prefabs != null) env["OREEXTRACT_PREFABS"] = prefabs;
+        if (save == null) { env["OREEXTRACT_SEED"] = seed; env["OREEXTRACT_GENVER"] = genVer.ToString(); }
         string locOut = a.Get("--locations");
-        if (locOut != null) env["ZONEGEN_LOCATIONS"] = "1";
-        if (Environment.GetEnvironmentVariable("ZONEGEN_UNLOAD") is string ul) env["ZONEGEN_UNLOAD"] = ul;   // testing
-        if (a.Has("--limit")) env["ZONEGEN_LIMIT"] = a.Int("--limit", 0).ToString();
+        if (locOut != null) env["OREEXTRACT_LOCATIONS"] = "1";
+        if (Environment.GetEnvironmentVariable("OREEXTRACT_UNLOAD") is string ul) env["OREEXTRACT_UNLOAD"] = ul;   // testing
+        if (a.Has("--limit")) env["OREEXTRACT_LIMIT"] = a.Int("--limit", 0).ToString();
 
         var workers = new List<Worker>();
         using var prot = new Protection(Math.Max(perProc * 2, 6L << 30));
@@ -342,12 +342,12 @@ internal static class Runner
             for (int k = 0; k < n; k++)
             {
                 var w = Worker.Prepare(runDir, k, inst, plugin);
-                var e = new Dictionary<string, string>(env) { ["ZONEGEN_SHARE"] = n == 1 && Environment.GetEnvironmentVariable("ZONEGEN_TEST_SHARE") is string ts ? ts : $"{k}/{n}" };   // testing: one process on a share
+                var e = new Dictionary<string, string>(env) { ["OREEXTRACT_SHARE"] = n == 1 && Environment.GetEnvironmentVariable("OREEXTRACT_TEST_SHARE") is string ts ? ts : $"{k}/{n}" };   // testing: one process on a share
                 if (resumeDir != null)
                 {
                     w.Consolidate();
                     if (Directory.Exists(w.SaveDir)) { Directory.Delete(w.SaveDir, true); Directory.CreateDirectory(w.SaveDir); }
-                    e["ZONEGEN_SKIP"] = w.PrevZonesPath;
+                    e["OREEXTRACT_SKIP"] = w.PrevZonesPath;
                     Install.Say($"p{k}: {w.PrevZones} zones already written");
                 }
                 if (save != null) save.CopyTo(Path.Combine(w.SaveDir, "worlds_local"));
@@ -386,7 +386,7 @@ internal static class Runner
         long peakEach = workers.Max(w => w.PeakBytes);
         var hdr = new StringBuilder();
         void H(string k, object v) => hdr.Append("# ").Append(k).Append(": ").Append(v).Append('\n');
-        H("tool", "zonegen " + Program.ToolVersion);
+        H("tool", "ore-extract " + Program.ToolVersion);
         H("input", save != null ? $"world save copy (save {save.SaveNumber})" : "seed only");
         H("world", world);
         H("seed", seedName);
@@ -486,7 +486,7 @@ internal static class Runner
     }
 
     private static string Resume(string runDir) =>
-        $"\nwhat was written so far is kept in {runDir}\nto continue: zonegen run --resume \"{runDir}\"";
+        $"\nwhat was written so far is kept in {runDir}\nto continue: ore-extract run --resume \"{runDir}\"";
 
     private static string Safe(Func<int> f) { try { return f().ToString(); } catch { return "?"; } }
 

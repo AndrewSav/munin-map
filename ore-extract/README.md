@@ -1,26 +1,31 @@
-# zonegen
+# ore-extract
 
 Predicts where a Valheim world's ore deposits are, including in zones nobody has visited yet. It
 generates a copy of the world on a headless dedicated server (no game client, no players), lets
 the game place everything with its own rules, and writes the ore deposits it placed to a CSV file.
-Fork tooling for TASK-4 (TASK-4.1 spike, TASK-4.2 tool); not part of Munin, and Munin doesn't read
-its output yet.
+It comes with each release of this fork of Munin Map, separately from the plugin.
 
-- `plugin/`: the ZoneGen BepInEx plugin that drives the generation inside the server.
-- `cli/`: the `zonegen` command-line tool that installs what it needs, starts the servers, watches
-  them and joins their output. The plugin is built into it.
-- `run.ps1`, `bench.ps1`: the TASK-4.1 spike scripts for the local test server's Docker image.
+## Get it
+
+From the fork's release page, next to `MuninMap.zip`:
+- Windows: `ore-extract-win-x64.zip`, holding `ore-extract.exe`;
+- Linux: `ore-extract-linux-x64.tar.gz`, holding `ore-extract`.
+
+Each is one self-contained file (no .NET, Docker or install needed) plus this README.
+`SHA256SUMS` on the release lists their checksums. `releases/latest/download/<file name>` always
+gives the newest. `ore-extract version` prints the release it belongs to (for example
+`3.4.0+patches.5`).
 
 ## Use
 
 ```
-zonegen run --save <world folder>        # fast: uses most of the machine
-zonegen run --save <world folder> --slow # one low-priority process, next to a game server
-zonegen run --seed <seed name>           # a world known to be fresh, without its save
-zonegen run --resume <run folder>        # continue a stopped run
-zonegen info --save <world folder>       # seed and versions of a save
-zonegen setup                            # only download and install
-zonegen help
+ore-extract run --save <world folder>        # fast: uses most of the machine
+ore-extract run --save <world folder> --slow # one low-priority process, next to a game server
+ore-extract run --seed <seed name>           # a world known to be fresh, without its save
+ore-extract run --resume <run folder>        # continue a stopped run
+ore-extract info --save <world folder>       # seed and versions of a save
+ore-extract setup                            # only download and install
+ore-extract help
 ```
 
 The result is `<world>-deposits.csv` in the current folder (or `--out FILE`): a `#` header
@@ -32,7 +37,7 @@ deposits of the others.
 
 Each process writes a zone's deposits as soon as the zone and its neighbours are generated, so a
 run that is stopped (the memory guard, Ctrl+C, a crash, a reboot) keeps what it had. The tool prints
-the run folder; `zonegen run --resume <run folder>` continues with the same options, from the run's
+the run folder; `ore-extract run --resume <run folder>` continues with the same options, from the run's
 own copy of the save, skipping the zones already written. Deposits next to the skipped zones can
 differ slightly from an uninterrupted run (99.8% the same in a test), the same kind of difference
 as between two parallel runs.
@@ -53,13 +58,13 @@ as between two parallel runs.
 
 **Run it with the same game version and world-generation mods as the world's server.** The game's
 rules decide the result, so a different version or a mod that changes generation (Expand World,
-Better Continents and the like) gives different deposits. `zonegen info` shows the save's location
+Better Continents and the like) gives different deposits. `ore-extract info` shows the save's location
 version next to the installed game's; when they differ, the server re-plans unplaced locations on
 its next start, and a copy run here does the same.
 
 What a copy can't predict exactly: the facing of randomly rotated locations and which candidate
 site the unique traders get are not fixed by the seed, so ore close to those can differ (about 1%
-of deposits in TASK-4.1's measurements).
+of deposits in the measurements against a fully generated world).
 
 ### Fast and slow
 
@@ -90,7 +95,7 @@ The tool gives way before anything else does when memory runs short:
 ### Platforms and what it downloads
 
 Windows x64 and Linux x64, one self-contained file each (no .NET or Docker needed). On first use
-it downloads into its work folder (`%LOCALAPPDATA%\zonegen` or `~/.local/share/zonegen`, or
+it downloads into its work folder (`%LOCALAPPDATA%\ore-extract` or `~/.local/share/ore-extract`, or
 `--work-dir`):
 - steamcmd, and through it the Valheim dedicated server (Steam app 896660, anonymous login,
   about 1.5 GB);
@@ -122,10 +127,18 @@ working files are deleted at the end unless `--keep`.
 ## Build
 
 ```
-./build.sh     # dist/zonegen-<version>-win-x64.zip and dist/zonegen-<version>-linux-x64.tar.gz
+./build.sh     # dist/ore-extract-win-x64.zip and dist/ore-extract-linux-x64.tar.gz
 ```
 
-Each bundle holds the one executable and this README.
+Each bundle holds the one executable and this README. `OREEXTRACT_VERSION` sets the version it
+reports (the release workflow passes the release stamp); without it, `0.0.0-local`.
 
-Needs the .NET 8 SDK; the plugin builds against `../../libs` (the game's and BepInEx's assemblies,
-as Munin does) and is embedded.
+Needs the .NET 8 SDK and the game's and BepInEx's assemblies in `../libs` (Munin's `build.sh` puts
+them there), and zip or PowerShell for the Windows bundle. The code:
+- `plugin/`: the OreExtract BepInEx plugin that drives the generation inside the server; built
+  first and embedded in the tool.
+- `cli/`: the `ore-extract` command-line tool that installs what it needs, starts the servers,
+  watches them and joins their output.
+
+The accuracy checks (`compare.py`, `compare_locations.py`) and the spike's test-image scripts are
+in `patches-tools/ore-extract/`.

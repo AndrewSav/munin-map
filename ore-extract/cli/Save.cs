@@ -3,7 +3,7 @@
 using System.IO.Compression;
 using System.Text;
 
-namespace ZoneGenCli;
+namespace OreExtractCli;
 
 internal sealed class SaveInput
 {
@@ -119,7 +119,7 @@ internal static class InfoCommand
         var inst = Install.From(a);
         if (inst.ManagedServer && !File.Exists(inst.ServerExe))
         {
-            Console.WriteLine("location version (game):   (no server installed yet: run 'zonegen setup', or give --server-dir)");
+            Console.WriteLine("location version (game):   (no server installed yet: run 'ore-extract setup', or give --server-dir)");
             return 0;
         }
         inst.EnsureAll();

@@ -187,3 +187,16 @@ How it differs from upstream:
 - The Telegram posts differ from the Discord ones: the password is posted only when turned on,
   the port shown is read from the game's `-port` (the Discord post shows `:1`), hidden players
   are never named, and chat can be relayed (Discord gets no chat).
+
+## TASK-4.3: ore-extract with each release
+
+Each release of this fork carries ore-extract next to `MuninMap.zip`: a standalone tool for admins
+(Windows x64 and Linux x64, one self-contained file each) that generates a copy of a world headless,
+with the game's own rules, and writes out where its ore deposits are, including in zones nobody has
+visited yet. Munin showing that output as predicted ore comes with TASK-4.4. How to run it:
+`ore-extract/README.md`, also inside each download.
+
+How it differs from upstream:
+- Upstream has no such tool. The release assets `ore-extract-win-x64.zip` and
+  `ore-extract-linux-x64.tar.gz` are new, and `SHA256SUMS` lists them with `MuninMap.zip`.
+- Its code is in `ore-extract/`, a folder upstream doesn't have; the Munin plugin doesn't change.

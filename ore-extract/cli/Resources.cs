@@ -1,11 +1,9 @@
 // CPU, memory and port helpers, and the protections that make the tool, not a game server next to
 // it, the one that gives way when memory runs short.
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
-namespace ZoneGenCli;
+namespace OreExtractCli;
 
 internal static class Mem
 {
@@ -193,21 +191,22 @@ internal static class Ports
 {
     private static readonly HashSet<int> taken = new();
 
-    // the server listens on UDP port P and P+1: find a pair nothing else holds
+    // the server listens on UDP port P and P+1: find a pair nothing else holds. Read from the system's
+    // list of UDP listeners rather than by opening a socket: a test socket on all interfaces makes
+    // Windows Firewall ask whether to allow the tool, which never needs incoming connections.
+    // `taken` covers servers this run started that may not be listening yet.
     public static int FreePair(int from = 24560)
     {
+        var used = new HashSet<int>();
+        try { foreach (var ep in System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().GetActiveUdpListeners()) used.Add(ep.Port); }
+        catch (Exception e) { Install.Say($"could not list the UDP ports in use ({e.Message}); taking the first pair this run hasn't"); }
         for (int p = from; p < 65000; p += 2)
         {
-            if (taken.Contains(p)) continue;
-            if (Free(p) && Free(p + 1)) { taken.Add(p); return p; }
+            if (taken.Contains(p) || used.Contains(p) || used.Contains(p + 1)) continue;
+            taken.Add(p);
+            return p;
         }
         throw new ToolError("no free UDP port pair found");
-    }
-
-    private static bool Free(int port)
-    {
-        try { using var u = new UdpClient(new IPEndPoint(IPAddress.Any, port)); return true; }
-        catch (SocketException) { return false; }
     }
 }
 

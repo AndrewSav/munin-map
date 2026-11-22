@@ -1,38 +1,39 @@
-// ZoneGen: generate a world's ungenerated zones on a dedicated server without a game client, write
+// OreExtract: generate a world's ungenerated zones on a dedicated server without a game client, write
 // out the objects of chosen prefabs (ore deposits by default) that generation created, and quit.
-// Fork tooling (TASK-4.1 spike, TASK-4.2 tool), not shipped in Munin. The zonegen CLI (../cli)
-// starts the server with this plugin and nothing else; run.ps1/bench.ps1 drive it in the test image.
+// Part of the ore-extract tool (TASK-4.1 spike, TASK-4.2 tool, shipped with releases since TASK-4.3);
+// not part of the Munin plugin. The ore-extract CLI (../cli) starts the server with this plugin and
+// nothing else; patches-tools/ore-extract/run.ps1 and bench.ps1 drive it in the test image.
 //
-// Off unless ZONEGEN_MODE is set. Settings come from environment variables:
-//   ZONEGEN_MODE      generate | export | probe
+// Off unless OREEXTRACT_MODE is set. Settings come from environment variables:
+//   OREEXTRACT_MODE      generate | export | probe
 //                     export: only write the matching objects already in the world
 //                     probe: log the game build and location version as soon as ZoneSystem wakes, quit
-//   ZONEGEN_OUT       output folder (default: BepInEx/zonegen)
-//   ZONEGEN_TAG       name for this run's files (default: run)
-//   ZONEGEN_PREFABS   comma-separated prefab names to export (default: the five ore deposits)
-//   ZONEGEN_SEED      create the world from this seed name if it has no save (no effect on a save)
-//   ZONEGEN_GENVER    world-generation version for a world created from ZONEGEN_SEED (default 2)
-//   ZONEGEN_LOCATIONS 1 = also write the location plan as loaded (<tag>-locations.csv)
-//   ZONEGEN_SKIP      file of "zx,zy" lines: zones to leave out (written by an earlier run; resume)
-//   ZONEGEN_DROP      1 = release the objects of zones once written (memory stays near the base)
-//   ZONEGEN_UNLOAD    n = call Resources.UnloadUnusedAssets every n zones (0 = never)
-//   ZONEGEN_LIMIT     generate at most this many zones (0 = all)
-//   ZONEGEN_SHARE     k/N: only zones whose index in the list is k mod N (for parallel processes)
-//   ZONEGEN_LAND      1 = skip zones that are ocean at the centre and all four corners
-//   ZONEGEN_RADIUS    world radius in metres for the zone list (default 10500)
-//   ZONEGEN_PLAIN     1 = like Upgrade World: one zone per frame, wait on a refused zone (10 s limit
-//                     unless ZONEGEN_STALL_S), no other speed-ups
-//   ZONEGEN_BUDGET_MS per frame, keep starting zones until this much time is used (default 0 = one)
-//   ZONEGEN_AHEAD     n = ask the heightmap builder for the next n zones ahead of time
-//   ZONEGEN_UNCAP     1 = lift the frame-rate cap
-//   ZONEGEN_NOSAVE    1 = no world saves while running (and none on quit)
-//   ZONEGEN_NODUNGEON 1 = don't build dungeon interiors
-//   ZONEGEN_VEGCUT    n = keep only the first n vegetation entries; "auto" = cut after the last entry
+//   OREEXTRACT_OUT       output folder (default: BepInEx/ore-extract)
+//   OREEXTRACT_TAG       name for this run's files (default: run)
+//   OREEXTRACT_PREFABS   comma-separated prefab names to export (default: the five ore deposits)
+//   OREEXTRACT_SEED      create the world from this seed name if it has no save (no effect on a save)
+//   OREEXTRACT_GENVER    world-generation version for a world created from OREEXTRACT_SEED (default 2)
+//   OREEXTRACT_LOCATIONS 1 = also write the location plan as loaded (<tag>-locations.csv)
+//   OREEXTRACT_SKIP      file of "zx,zy" lines: zones to leave out (written by an earlier run; resume)
+//   OREEXTRACT_DROP      1 = release the objects of zones once written (memory stays near the base)
+//   OREEXTRACT_UNLOAD    n = call Resources.UnloadUnusedAssets every n zones (0 = never)
+//   OREEXTRACT_LIMIT     generate at most this many zones (0 = all)
+//   OREEXTRACT_SHARE     k/N: only zones whose index in the list is k mod N (for parallel processes)
+//   OREEXTRACT_LAND      1 = skip zones that are ocean at the centre and all four corners
+//   OREEXTRACT_RADIUS    world radius in metres for the zone list (default 10500)
+//   OREEXTRACT_PLAIN     1 = like Upgrade World: one zone per frame, wait on a refused zone (10 s limit
+//                     unless OREEXTRACT_STALL_S), no other speed-ups
+//   OREEXTRACT_BUDGET_MS per frame, keep starting zones until this much time is used (default 0 = one)
+//   OREEXTRACT_AHEAD     n = ask the heightmap builder for the next n zones ahead of time
+//   OREEXTRACT_UNCAP     1 = lift the frame-rate cap
+//   OREEXTRACT_NOSAVE    1 = no world saves while running (and none on quit)
+//   OREEXTRACT_NODUNGEON 1 = don't build dungeon interiors
+//   OREEXTRACT_VEGCUT    n = keep only the first n vegetation entries; "auto" = cut after the last entry
 //                     whose prefab is exported (no cut if an exported prefab isn't vegetation)
-//   ZONEGEN_WINDOW    zones in progress at a time outside plain mode (default 8)
-//   ZONEGEN_STALL_S   seconds a refused zone is retried before it counts as failed (default 120)
-//   ZONEGEN_DRY       1 = only count the zones in the list (and how many are land), then quit
-//   ZONEGEN_QUIT      0 = stay running at the end (default: quit)
+//   OREEXTRACT_WINDOW    zones in progress at a time outside plain mode (default 8)
+//   OREEXTRACT_STALL_S   seconds a refused zone is retried before it counts as failed (default 120)
+//   OREEXTRACT_DRY       1 = only count the zones in the list (and how many are land), then quit
+//   OREEXTRACT_QUIT      0 = stay running at the end (default: quit)
 //
 // Besides the BepInEx log, every line is appended to <out>/<tag>.log. Lines starting with "@" are
 // for the CLI: "@info k=v ...", "@progress k=v ...", "@done k=v ...", "@error message".
@@ -48,9 +49,9 @@ using BepInEx;
 using HarmonyLib;
 using UnityEngine;
 
-namespace ZoneGen
+namespace OreExtract
 {
-    [BepInPlugin("patches.zonegen", "ZoneGen", "0.2.0")]
+    [BepInPlugin("patches.oreextract", "OreExtract", "0.2.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static string Env(string k, string d = "") => Environment.GetEnvironmentVariable(k) is string v && v.Length > 0 ? v : d;
@@ -69,21 +70,21 @@ namespace ZoneGen
 
         private void Awake()
         {
-            Mode = Env("ZONEGEN_MODE");
+            Mode = Env("OREEXTRACT_MODE");
             if (Mode != "generate" && Mode != "export" && Mode != "probe") return;
             Instance = this;
             Active = true;
-            NoSave = EnvOn("ZONEGEN_NOSAVE") || Mode == "probe";
-            NoDungeon = EnvOn("ZONEGEN_NODUNGEON");
-            outDir = Env("ZONEGEN_OUT", Path.Combine(Paths.BepInExRootPath, "zonegen"));
-            runTag = Env("ZONEGEN_TAG", "run");
-            prefabs = Env("ZONEGEN_PREFABS").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
+            NoSave = EnvOn("OREEXTRACT_NOSAVE") || Mode == "probe";
+            NoDungeon = EnvOn("OREEXTRACT_NODUNGEON");
+            outDir = Env("OREEXTRACT_OUT", Path.Combine(Paths.BepInExRootPath, "ore-extract"));
+            runTag = Env("OREEXTRACT_TAG", "run");
+            prefabs = Env("OREEXTRACT_PREFABS").Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToArray();
             if (prefabs.Length == 0) prefabs = DefaultPrefabs;
             Directory.CreateDirectory(outDir);
             logPath = Path.Combine(outDir, runTag + ".log");
             // a game version whose code no longer has what this plugin patches or uses fails here
             // or on the first frame: report it instead of leaving an idle server behind
-            try { new Harmony("patches.zonegen").PatchAll(typeof(Plugin).Assembly); }
+            try { new Harmony("patches.oreextract").PatchAll(typeof(Plugin).Assembly); }
             catch (Exception e) { Fail("patching the game failed (game version not supported by this build?)", e); return; }
             Log($"mode {Mode}, tag {runTag}, output {outDir}, prefabs {string.Join(",", prefabs)}");
         }
@@ -116,22 +117,22 @@ namespace ZoneGen
             started = true;
             var w = ZNet.World;
             Log($"@info build={(global::Version.CurrentVersion)} locver={zs.m_locationVersion} seedname={Q(w.m_seedName)} seed={w.m_seed} genver={w.m_worldGenVersion} fromseed={(CreatedFromSeed ? 1 : 0)} replanned={(Replanned ? 1 : 0)} generated={zs.m_generatedZones.Count}");
-            if (EnvOn("ZONEGEN_LOCATIONS")) WriteLocations(zs);
+            if (EnvOn("OREEXTRACT_LOCATIONS")) WriteLocations(zs);
             StartCoroutine(Guard(WhenLoaded(Mode == "export" ? ExportOnly() : Generate())));
         }
 
-        // ZONEGEN_PARENT_PID: the zonegen tool that started this server. On Linux nothing ends a child
+        // OREEXTRACT_PARENT_PID: the ore-extract tool that started this server. On Linux nothing ends a child
         // when its parent dies (killed, or its SSH/docker exec session dropped), and the memory guard
         // lives in the tool, so a server whose tool is gone quits by itself; what it wrote stays for a
         // resume. (On Windows the tool's job object ends its servers anyway.)
         private void CheckParent()
         {
-            if (!int.TryParse(Env("ZONEGEN_PARENT_PID"), out int pid) || Application.platform != RuntimePlatform.LinuxServer && Application.platform != RuntimePlatform.LinuxPlayer) return;
+            if (!int.TryParse(Env("OREEXTRACT_PARENT_PID"), out int pid) || Application.platform != RuntimePlatform.LinuxServer && Application.platform != RuntimePlatform.LinuxPlayer) return;
             bool alive;
-            try { alive = File.Exists($"/proc/{pid}/comm") && File.ReadAllText($"/proc/{pid}/comm").Trim().StartsWith("zonegen"); }
+            try { alive = File.Exists($"/proc/{pid}/comm") && File.ReadAllText($"/proc/{pid}/comm").Trim().StartsWith("ore-extract"); }
             catch { alive = false; }
             if (alive) return;
-            Log($"@error the zonegen tool (pid {pid}) is gone; stopping (resume the run to continue)");
+            Log($"@error the ore-extract tool (pid {pid}) is gone; stopping (resume the run to continue)");
             Active = false;
             Application.Quit();
         }
@@ -179,16 +180,16 @@ namespace ZoneGen
         private IEnumerator Generate()
         {
             var zs = ZoneSystem.instance;
-            bool plain = EnvOn("ZONEGEN_PLAIN");
-            int limit = EnvInt("ZONEGEN_LIMIT", 0), radius = EnvInt("ZONEGEN_RADIUS", 10500);
-            int budgetMs = plain ? 0 : EnvInt("ZONEGEN_BUDGET_MS", 0), ahead = plain ? 0 : EnvInt("ZONEGEN_AHEAD", 0);
-            int stallS = EnvInt("ZONEGEN_STALL_S", plain ? 10 : 120);
-            bool land = EnvOn("ZONEGEN_LAND");
+            bool plain = EnvOn("OREEXTRACT_PLAIN");
+            int limit = EnvInt("OREEXTRACT_LIMIT", 0), radius = EnvInt("OREEXTRACT_RADIUS", 10500);
+            int budgetMs = plain ? 0 : EnvInt("OREEXTRACT_BUDGET_MS", 0), ahead = plain ? 0 : EnvInt("OREEXTRACT_AHEAD", 0);
+            int stallS = EnvInt("OREEXTRACT_STALL_S", plain ? 10 : 120);
+            bool land = EnvOn("OREEXTRACT_LAND");
             int shareK = 0, shareN = 1;
-            var share = Env("ZONEGEN_SHARE").Split('/');
+            var share = Env("OREEXTRACT_SHARE").Split('/');
             if (share.Length == 2) { int.TryParse(share[0], out shareK); int.TryParse(share[1], out shareN); if (shareN < 1) shareN = 1; }
 
-            if (EnvOn("ZONEGEN_UNCAP")) { Application.targetFrameRate = -1; QualitySettings.vSyncCount = 0; }
+            if (EnvOn("OREEXTRACT_UNCAP")) { Application.targetFrameRate = -1; QualitySettings.vSyncCount = 0; }
             int vegCut = VegCut(zs);
             if (vegCut > 0 && vegCut < zs.m_vegetation.Count) zs.m_vegetation.RemoveRange(vegCut, zs.m_vegetation.Count - vegCut);
 
@@ -209,7 +210,7 @@ namespace ZoneGen
             if (shareN > 1) list = list.Where((z, i) => i % shareN == shareK).ToList();
             if (limit > 0 && list.Count > limit) list = list.GetRange(0, limit);
             // resume: zones an earlier run already wrote are left out (and never generated here)
-            string skipPath = Env("ZONEGEN_SKIP");
+            string skipPath = Env("OREEXTRACT_SKIP");
             if (skipPath.Length > 0 && File.Exists(skipPath))
             {
                 var skip = new HashSet<Vector2s>();
@@ -222,10 +223,10 @@ namespace ZoneGen
                 list = list.Where(z => !skip.Contains(z)).ToList();
                 Log($"resume: {before - list.Count} zones already written, skipped");
             }
-            if (EnvOn("ZONEGEN_DRY")) { int landN = list.Count(z => !IsOcean(ZoneSystem.GetZonePos(z))); Log($"dry: {list.Count} zones in the list, {landN} of them land"); Log($"@done zones={list.Count} failed=0 seconds=0 deposits=0 {MemKv()}"); Finish(); yield break; }
-            var settler = new Settler(list, prefabs, outDir, runTag, EnvOn("ZONEGEN_DROP"));
-            int window = plain ? 1 : Math.Max(1, EnvInt("ZONEGEN_WINDOW", 8));
-            Log($"generate: {list.Count} zones (plain {plain}, budget {budgetMs} ms, ahead {ahead}, uncap {EnvOn("ZONEGEN_UNCAP")}, nosave {NoSave}, nodungeon {NoDungeon}, drop {EnvOn("ZONEGEN_DROP")}, vegcut {vegCut}, land {land}, share {shareK}/{shareN}, stall {stallS} s, window {window})");
+            if (EnvOn("OREEXTRACT_DRY")) { int landN = list.Count(z => !IsOcean(ZoneSystem.GetZonePos(z))); Log($"dry: {list.Count} zones in the list, {landN} of them land"); Log($"@done zones={list.Count} failed=0 seconds=0 deposits=0 {MemKv()}"); Finish(); yield break; }
+            var settler = new Settler(list, prefabs, outDir, runTag, EnvOn("OREEXTRACT_DROP"));
+            int window = plain ? 1 : Math.Max(1, EnvInt("OREEXTRACT_WINDOW", 8));
+            Log($"generate: {list.Count} zones (plain {plain}, budget {budgetMs} ms, ahead {ahead}, uncap {EnvOn("OREEXTRACT_UNCAP")}, nosave {NoSave}, nodungeon {NoDungeon}, drop {EnvOn("OREEXTRACT_DROP")}, vegcut {vegCut}, land {land}, share {shareK}/{shareN}, stall {stallS} s, window {window})");
             Log($"@progress done=0 total={list.Count} failed=0 rate=0 {MemKv()}");
 
             var hm = zs.m_zonePrefab.GetComponentInChildren<Heightmap>();
@@ -237,7 +238,7 @@ namespace ZoneGen
             int aheadIndex = 0;
             var listArr = list.ToArray();
 
-            int unloadEvery = EnvInt("ZONEGEN_UNLOAD", 0), unloadAt = unloadEvery;
+            int unloadEvery = EnvInt("OREEXTRACT_UNLOAD", 0), unloadAt = unloadEvery;
             var active = new List<Vector2s>();
             while (pending.Count > 0 || active.Count > 0)
             {
@@ -305,12 +306,12 @@ namespace ZoneGen
             Finish();
         }
 
-        // ZONEGEN_VEGCUT: a number, or "auto" for just after the last vegetation entry that places an
+        // OREEXTRACT_VEGCUT: a number, or "auto" for just after the last vegetation entry that places an
         // exported prefab. Each entry reseeds itself and only earlier entries' colliders affect it,
         // so dropping the later ones doesn't change the exported objects (doc-2).
         private int VegCut(ZoneSystem zs)
         {
-            string v = Env("ZONEGEN_VEGCUT");
+            string v = Env("OREEXTRACT_VEGCUT");
             if (v != "auto") return int.TryParse(v, out int n) ? n : 0;
             var want = new HashSet<string>(prefabs);
             var found = new HashSet<string>();
@@ -357,7 +358,7 @@ namespace ZoneGen
             return n;
         }
 
-        // ZONEGEN_LOCATIONS=1: the world's location plan as loaded (and re-planned if it was), before
+        // OREEXTRACT_LOCATIONS=1: the world's location plan as loaded (and re-planned if it was), before
         // any generation: prefab, x, y, z, placed
         private void WriteLocations(ZoneSystem zs)
         {
@@ -385,14 +386,14 @@ namespace ZoneGen
 
         internal void Log(string s)
         {
-            Logger.LogInfo("ZoneGen: " + s);
+            Logger.LogInfo("OreExtract: " + s);
             if (logPath == null) return;
             try { File.AppendAllText(logPath, DateTime.UtcNow.ToString("HH:mm:ss", Inv) + " " + s + "\n"); } catch { }
         }
 
         internal void Finish()
         {
-            if (Env("ZONEGEN_QUIT", "1") == "1") { Log("quitting"); Application.Quit(); }
+            if (Env("OREEXTRACT_QUIT", "1") == "1") { Log("quitting"); Application.Quit(); }
         }
     }
 
@@ -509,18 +510,18 @@ namespace ZoneGen
         }
     }
 
-    // ZONEGEN_SEED: the server has no seed switch, so a world it would create with a random seed is
+    // OREEXTRACT_SEED: the server has no seed switch, so a world it would create with a random seed is
     // created from the given seed name and world-generation version instead. An existing save wins.
     [HarmonyPatch(typeof(World), nameof(World.GetCreateWorld))]
     internal static class SeedPatch
     {
         private static bool Prefix(string name, FileHelpers.FileSource source, ref World __result)
         {
-            string seed = Plugin.Env("ZONEGEN_SEED");
+            string seed = Plugin.Env("OREEXTRACT_SEED");
             if (!Plugin.Active || seed.Length == 0) return true;
             if (SaveSystem.TryGetSaveByName(name, SaveDataType.World, out var save) && !save.IsDeleted) return true;
             var world = new World(name, seed);
-            if (int.TryParse(Plugin.Env("ZONEGEN_GENVER"), out int gv)) world.m_worldGenVersion = gv;
+            if (int.TryParse(Plugin.Env("OREEXTRACT_GENVER"), out int gv)) world.m_worldGenVersion = gv;
             world.m_fileSource = source;
             SaveSystem.SetSaveNumber(0u);
             world.SaveWorldFWLData(DateTime.Now);

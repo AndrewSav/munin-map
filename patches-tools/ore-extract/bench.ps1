@@ -8,20 +8,20 @@ $ErrorActionPreference = "Stop"
 $here = $PSScriptRoot
 $out = Join-Path $here "..\local-test\data\zonegen\bench.txt"
 $runs = [ordered]@{
-  "plain"     = @{ ZONEGEN_PLAIN = 1 }
-  "budget"    = @{ ZONEGEN_BUDGET_MS = 30 }
-  "uncap"     = @{ ZONEGEN_BUDGET_MS = 30; ZONEGEN_UNCAP = 1 }
-  "ahead"     = @{ ZONEGEN_BUDGET_MS = 30; ZONEGEN_AHEAD = 16 }
-  "nosave"    = @{ ZONEGEN_PLAIN = 1; ZONEGEN_NOSAVE = 1 }
-  "nodungeon" = @{ ZONEGEN_PLAIN = 1; ZONEGEN_NODUNGEON = 1 }
-  "vegcut"    = @{ ZONEGEN_PLAIN = 1; ZONEGEN_VEGCUT = 94 }
-  "land"      = @{ ZONEGEN_PLAIN = 1; ZONEGEN_LAND = 1 }
-  "all"       = @{ ZONEGEN_BUDGET_MS = 30; ZONEGEN_UNCAP = 1; ZONEGEN_AHEAD = 16; ZONEGEN_NOSAVE = 1; ZONEGEN_NODUNGEON = 1; ZONEGEN_VEGCUT = 94 }
-  "all-land"  = @{ ZONEGEN_BUDGET_MS = 30; ZONEGEN_UNCAP = 1; ZONEGEN_AHEAD = 16; ZONEGEN_NOSAVE = 1; ZONEGEN_NODUNGEON = 1; ZONEGEN_VEGCUT = 94; ZONEGEN_LAND = 1 }
+  "plain"     = @{ OREEXTRACT_PLAIN = 1 }
+  "budget"    = @{ OREEXTRACT_BUDGET_MS = 30 }
+  "uncap"     = @{ OREEXTRACT_BUDGET_MS = 30; OREEXTRACT_UNCAP = 1 }
+  "ahead"     = @{ OREEXTRACT_BUDGET_MS = 30; OREEXTRACT_AHEAD = 16 }
+  "nosave"    = @{ OREEXTRACT_PLAIN = 1; OREEXTRACT_NOSAVE = 1 }
+  "nodungeon" = @{ OREEXTRACT_PLAIN = 1; OREEXTRACT_NODUNGEON = 1 }
+  "vegcut"    = @{ OREEXTRACT_PLAIN = 1; OREEXTRACT_VEGCUT = 94 }
+  "land"      = @{ OREEXTRACT_PLAIN = 1; OREEXTRACT_LAND = 1 }
+  "all"       = @{ OREEXTRACT_BUDGET_MS = 30; OREEXTRACT_UNCAP = 1; OREEXTRACT_AHEAD = 16; OREEXTRACT_NOSAVE = 1; OREEXTRACT_NODUNGEON = 1; OREEXTRACT_VEGCUT = 94 }
+  "all-land"  = @{ OREEXTRACT_BUDGET_MS = 30; OREEXTRACT_UNCAP = 1; OREEXTRACT_AHEAD = 16; OREEXTRACT_NOSAVE = 1; OREEXTRACT_NODUNGEON = 1; OREEXTRACT_VEGCUT = 94; OREEXTRACT_LAND = 1 }
 }
 "bench started $(Get-Date -Format s), $Limit zones per run" | Set-Content $out
 foreach ($tag in $runs.Keys) {
-  $s = $runs[$tag].Clone(); $s.ZONEGEN_LIMIT = $Limit
+  $s = $runs[$tag].Clone(); $s.OREEXTRACT_LIMIT = $Limit
   $sw = [Diagnostics.Stopwatch]::StartNew()
   $lines = & (Join-Path $here "run.ps1") $tag -Settings $s -Wait 2>&1 | ForEach-Object { "$_" }
   $sum = ($lines | Where-Object { $_ -match '^(zones|done|failed|seconds|zones_per_min|deposits|working set)' }) -join '; '

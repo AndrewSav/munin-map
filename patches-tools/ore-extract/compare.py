@@ -1,4 +1,4 @@
-"""Compare a zonegen deposit CSV with a reference export (TASK-4.2 accuracy check).
+"""Compare a ore-extract deposit CSV with a reference export (TASK-4.2 accuracy check).
 
 Usage: python -I compare.py RUN.csv REFERENCE.csv [--base-save WORLD_DIR] [--tol METRES]
 

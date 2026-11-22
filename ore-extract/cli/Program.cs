@@ -1,22 +1,22 @@
-// zonegen: generate the ungenerated zones of a copy of a Valheim world on a headless dedicated
+// ore-extract: generate the ungenerated zones of a copy of a Valheim world on a headless dedicated
 // server, and write out the ore deposits (or other prefabs) that generation placed. TASK-4.2.
 using System.Reflection;
 
-namespace ZoneGenCli;
+namespace OreExtractCli;
 
 internal static class Program
 {
     internal static readonly string ToolVersion =
-        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion?.Split('+')[0] ?? "?";
+        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";   // e.g. 3.4.0+patches.5 (the release stamp)
 
     private const string Usage = """
-zonegen - predict a Valheim world's ore deposits by generating a copy of it headless
+ore-extract - predict a Valheim world's ore deposits by generating a copy of it headless
 
 Usage:
-  zonegen run  (--save PATH | --seed NAME [--gen-version N]) [options]
-  zonegen run  --resume RUN_DIR
-  zonegen info --save PATH [--no-probe]
-  zonegen setup [--update] [--own-server]
+  ore-extract run  (--save PATH | --seed NAME [--gen-version N]) [options]
+  ore-extract run  --resume RUN_DIR
+  ore-extract info --save PATH [--no-probe]
+  ore-extract setup [--update] [--own-server]
 
 Input (run):
   --save PATH          a copy of the world save: the world's folder (worlds_local/<world>, with
@@ -48,15 +48,15 @@ Other (run):
                        zones are kept and skipped; the other options are the stopped run's
 
 Common:
-  --work-dir DIR       where downloads and runs live (default: %LOCALAPPDATA%\zonegen or
-                       ~/.local/share/zonegen)
+  --work-dir DIR       where downloads and runs live (default: %LOCALAPPDATA%\ore-extract or
+                       ~/.local/share/ore-extract)
   --server-dir DIR     use this Valheim dedicated server install; it is only read (on Windows it
                        must already have BepInEx's winhttp.dll)
   (default)            a server already on this machine (Steam's "Valheim dedicated server", or
                        /opt/valheim in a server container) and its BepInEx if it has one; else
-                       zonegen's own install, downloaded on first use and then reused as it is
-  --own-server         always use zonegen's own install
-  --update             update zonegen's own server install with steamcmd first (opt-in; an
+                       ore-extract's own install, downloaded on first use and then reused as it is
+  --own-server         always use ore-extract's own install
+  --update             update ore-extract's own server install with steamcmd first (opt-in; an
                        install found elsewhere is never changed)
 """;
 
