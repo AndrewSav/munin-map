@@ -261,6 +261,7 @@ namespace ZoneGen
                 // which keeps only 16 finished heightmaps, isn't asked for hundreds at once (that
                 // thrashed: finished heightmaps were dropped before their zone came round again)
                 while (active.Count < window && pending.Count > 0) active.Add(pending.Dequeue());
+                int finishedBefore = done + failed;
                 for (int i = 0; i < active.Count; )
                 {
                     var z = active[i];
@@ -279,6 +280,11 @@ namespace ZoneGen
                     }
                     if (budgetMs <= 0 || frame.ElapsedMilliseconds >= budgetMs) break;
                 }
+                // every zone in progress is waiting for its terrain: let the heightmap builder's
+                // thread run instead of spinning. Uncapped on one core at idle priority, the spinning
+                // main thread starved it on Windows, which schedules strictly by thread priority
+                // (TASK-4.2: 100 zones/min and zones failing after 120 s)
+                if (!plain && done + failed == finishedBefore && active.Count > 0) System.Threading.Thread.Sleep(2);
 
                 if (since.Elapsed.TotalSeconds >= 30)
                 {

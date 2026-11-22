@@ -4,7 +4,7 @@ title: Predict ore deposits in unvisited zones
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
-updated_date: '2026-11-22T05:33:58Z'
+updated_date: '2026-11-22T12:49:22Z'
 labels:
   - plugin
   - web
@@ -69,4 +69,6 @@ Ground truth for measuring a prediction: the TASK-27 snapshot, where every zone 
 TASK-4.1 spike result (2026-11-22, details in doc-2 'Measured'): a client-free generator (patches-tools/zonegen) generated every ungenerated zone of the live copy in about 7.4 minutes with 4 processes (9.2 with start-up, 13.4 GB, 0 failures; Its deposits match the TASK-27 snapshot 99.3% (copper 100%, tin 99.9%, scrap 99.7%, silver 98.7%, obsidian 98.2%); the misses are what the seed doesn't decide (generation order near zone edges, randomly rotated locations).
 Recommendation (for the user to decide, criterion #8): the copy method is now practical. Build it as (a) a tool that generates a copy of a world headless and writes its ore deposits to a file (fast and parallel, or slow in the background next to the server), and (b) Munin loading that file and showing the deposits as predicted where the save has no real ones. Re-implementing placement in Munin (method 1) is no longer needed for this server; it would only matter to give predictions with no setup at all.
 
+
+TASK-4.2 result (2026-11-23), input for criterion #8: the copy method is now a standalone tool, patches-tools/zonegen (Windows and Linux, one self-contained file each, about 6.5 MB packed). It takes a copy of the world save (or a seed for a fresh world), downloads or reuses the dedicated server and BepInEx, generates every ungenerated zone headless, and writes the ore deposits (or any prefab list) to a CSV. Accuracy against the TASK-27 snapshot: 99.1-99.3% in every run (copper and tin 99.8-100%, silver 97-98%, obsidian about 98%); a seed-only run matches as well (99.3%), and its location plan matches the save's 99.93% (only Haldor's settled site differs), because this world has never been re-planned. Memory: 2.6-3.4 GB per process at the peak, mostly game assets, whatever the process count. Safety: memory guard (container-aware), oom_score_adj 1000 on Linux, a job object on Windows, servers quit if the tool dies, incremental output with resume. Cost of the method: a copy of the save, a server install (reused if present), and a rerun after a game update that changes generation or the location version. Still open for #8: Munin loading the file (not started), and whether method 1 is still wanted; nothing decided.
 <!-- SECTION:NOTES:END -->

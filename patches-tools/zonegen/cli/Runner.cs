@@ -191,9 +191,11 @@ internal static class Probe
     // ZoneSystem to wake (cached per server build)
     public static (int locationVersion, string build) GameInfo(Install inst)
     {
-        string id = inst.BuildId() ?? "unknown";
+        // the Steam build if the install has its manifest, else the server executable's size and time
+        var exe = new FileInfo(inst.ServerExe);
+        string id = inst.BuildId() ?? $"exe{exe.Length:x}-{exe.LastWriteTimeUtc.Ticks:x}";
         string cache = Path.Combine(inst.WorkDir, $"probe-{(inst.ManagedServer ? "managed" : Hash(inst.ServerDir))}-{id}.txt");
-        if (id != "unknown" && File.Exists(cache))
+        if (File.Exists(cache))
         {
             var c = Worker.Kv(File.ReadAllText(cache).Trim());
             if (c.TryGetValue("locver", out var lv) && int.TryParse(lv, out int v)) return (v, c.GetValueOrDefault("build", "?"));
@@ -314,8 +316,10 @@ internal static class Runner
         var plugin = Install.PluginBytes();
         var env = new Dictionary<string, string>
         {
-            ["ZONEGEN_MODE"] = "generate", ["ZONEGEN_BUDGET_MS"] = slow ? "10" : "30", ["ZONEGEN_WINDOW"] = "8",
-            ["ZONEGEN_UNCAP"] = slow ? "0" : "1", ["ZONEGEN_AHEAD"] = "16", ["ZONEGEN_NOSAVE"] = "1", ["ZONEGEN_NODUNGEON"] = "1",
+            // slow mode is held back by its CPU priority and core limit, not by the frame: a frame cap and
+            // a small budget only left its own core idle (TASK-4.2 live test: 186-240 zones/min)
+            ["ZONEGEN_MODE"] = "generate", ["ZONEGEN_BUDGET_MS"] = "30", ["ZONEGEN_WINDOW"] = "8",
+            ["ZONEGEN_UNCAP"] = "1", ["ZONEGEN_AHEAD"] = "16", ["ZONEGEN_NOSAVE"] = "1", ["ZONEGEN_NODUNGEON"] = "1",
             ["ZONEGEN_VEGCUT"] = "auto", ["ZONEGEN_DROP"] = a.Has("--no-drop") ? "0" : "1",
         };
         if (prefabs != null) env["ZONEGEN_PREFABS"] = prefabs;

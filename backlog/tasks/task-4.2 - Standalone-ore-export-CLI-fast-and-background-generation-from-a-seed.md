@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-22T06:02:37Z'
-updated_date: '2026-11-22T11:08:21Z'
+updated_date: '2026-11-22T13:07:33Z'
 labels:
   - tooling
 dependencies: []
@@ -34,28 +34,28 @@ Ref: TASK-4.1 (patches-tools/zonegen: ZoneGen.cs, run.ps1, bench.ps1), doc-2 'Me
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 One tool with the same options runs on Windows x64 and Linux x64, from a release bundle, without Docker or build tools
-- [ ] #3 Output is one file of deposits (prefab, position, zone) for a configurable prefab list whose default is the ore deposits, headed by the input (world copy or seed), seed, world-generation version, game version, tool version and zone count; the output of all processes is joined into it
-- [ ] #4 Fast mode defaults to a process count that uses 80% of the logical CPU threads (divided by the threads one process uses, as measured), lowered so the processes fit in available memory; a command-line option sets the count
-- [ ] #5 Peak memory per process is measured across at least three seeds and several process counts, and the memory limit in fast mode is based on that measurement
-- [ ] #6 Slow mode runs one process at the lowest CPU priority, and can be held to a single core
-- [ ] #7 The tool works only on its own copy in its own folder: it never writes the world files it was given or any other save, and its server process does not take ports or a server listing that clash with a game server running on the same host or in the same container
-- [ ] #8 The tool, not a server next to it, is what runs out of memory first: on Linux its server process sets its own OOM score to the maximum (oom_score_adj 1000, no privileges needed), so the kernel picks it over any other process in the same container or host; on Windows it runs under a job object with a memory limit
-- [ ] #9 A memory guard reads the memory actually available to it (the container cgroup limit and use where there is one, otherwise the system), refuses to start below a margin, and stops its processes cleanly if headroom falls under the margin during a run
-- [ ] #10 Accuracy, against the TASK-27 snapshot over the zones live had not explored: a run on a copy of the live world and a seed-only run are both compared, and their deposit match rates, and the location match rate of the seed-only run, are recorded
-- [ ] #12 Before any test on a live server, a Linux test outside it: the tool runs in a memory-capped container next to a process standing in for a game server, and it is shown that the memory guard stops the tool and that, with the guard off, the kernel kills the tool and not the stand-in
-- [ ] #14 A README covers both modes, platforms, downloads and disk use, and warns that fast mode uses most of the CPU and memory
-- [ ] #15 Results are recorded in TASK-4 notes as input to criterion #8; the tool lives in patches-tools and nothing goes into the product
-- [ ] #16 The README says the tool must run the same game version and world-generation mods as the world server, and that the seed-only input is exact only for worlds whose location plan was never redone by a location-version change
-- [ ] #17 The main input is a copy of a world save: the world folder of the current chunked format (_main.N.fwl2, .db2, .chunks, .ok and .chunk files, one save number) or the older .fwl and .db pair; the tool generates the zones that world has not generated yet and keeps its own locations. A seed name plus world-generation version (default 2) is accepted instead for a world known to be fresh. A utility command prints, from a save, the seed, world-generation version and location version (from .db2 or .db), next to the location version of the installed game, and warns when they differ (the server re-plans unplaced locations on its next start)
-- [ ] #18 Each process writes its deposits as it goes: a zone is written once it and its neighbours are generated, so a stopped or killed run keeps everything written so far
-- [ ] #19 zonegen run --resume continues a stopped run: zones already written are kept and skipped, the rest are generated, and the output is the same as an uninterrupted run apart from generation-order differences near the skipped zones
-- [ ] #20 A process drops the objects of zones that are written and have no ungenerated neighbour left; its effect on memory and accuracy is measured against keeping them and recorded
+- [x] #1 One tool with the same options runs on Windows x64 and Linux x64, from a release bundle, without Docker or build tools
+- [x] #3 Output is one file of deposits (prefab, position, zone) for a configurable prefab list whose default is the ore deposits, headed by the input (world copy or seed), seed, world-generation version, game version, tool version and zone count; the output of all processes is joined into it
+- [x] #4 Fast mode defaults to a process count that uses 80% of the logical CPU threads (divided by the threads one process uses, as measured), lowered so the processes fit in available memory; a command-line option sets the count
+- [x] #5 Peak memory per process is measured across at least three seeds and several process counts, and the memory limit in fast mode is based on that measurement
+- [x] #6 Slow mode runs one process at the lowest CPU priority, and can be held to a single core
+- [x] #7 The tool works only on its own copy in its own folder: it never writes the world files it was given or any other save, and its server process does not take ports or a server listing that clash with a game server running on the same host or in the same container
+- [x] #8 The tool, not a server next to it, is what runs out of memory first: on Linux its server process sets its own OOM score to the maximum (oom_score_adj 1000, no privileges needed), so the kernel picks it over any other process in the same container or host; on Windows it runs under a job object with a memory limit
+- [x] #9 A memory guard reads the memory actually available to it (the container cgroup limit and use where there is one, otherwise the system), refuses to start below a margin, and stops its processes cleanly if headroom falls under the margin during a run
+- [x] #10 Accuracy, against the TASK-27 snapshot over the zones live had not explored: a run on a copy of the live world and a seed-only run are both compared, and their deposit match rates, and the location match rate of the seed-only run, are recorded
+- [x] #12 Before any test on a live server, a Linux test outside it: the tool runs in a memory-capped container next to a process standing in for a game server, and it is shown that the memory guard stops the tool and that, with the guard off, the kernel kills the tool and not the stand-in
+- [x] #14 A README covers both modes, platforms, downloads and disk use, and warns that fast mode uses most of the CPU and memory
+- [x] #15 Results are recorded in TASK-4 notes as input to criterion #8; the tool lives in patches-tools and nothing goes into the product
+- [x] #16 The README says the tool must run the same game version and world-generation mods as the world server, and that the seed-only input is exact only for worlds whose location plan was never redone by a location-version change
+- [x] #17 Each process writes its deposits as it goes: a zone is written once it and its neighbours are generated, so a stopped or killed run keeps everything written so far
+- [x] #18 zonegen run --resume continues a stopped run: zones already written are kept and skipped, the rest are generated, and the output is the same as an uninterrupted run apart from generation-order differences near the skipped zones
+- [x] #19 A process drops the objects of zones that are written and have no ungenerated neighbour left; its effect on memory and accuracy is measured against keeping them and recorded
+- [ ] #20 The main input is a copy of a world save: the world folder of the current chunked format (_main.N.fwl2, .db2, .chunks, .ok and .chunk files, one save number) or the older .fwl and .db pair; the tool generates the zones that world has not generated yet and keeps its own locations. A seed name plus world-generation version (default 2) is accepted instead for a world known to be fresh. A utility command prints, from a save, the seed and world-generation version, and for the current format the location version (from .db2), next to the location version of the installed game, and warns when they differ (the server re-plans unplaced locations on its next start); for the older format, which the game converts on load, the run itself reports a re-plan
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
+- [x] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -69,6 +69,8 @@ Ref: TASK-4.1 (patches-tools/zonegen: ZoneGen.cs, run.ps1, bench.ps1), doc-2 'Me
 6. Save copy: newest save number with .ok; copy its _main files and chunk files; recheck the .ok and retry if it vanished. Old .fwl/.db pair copied as is.
 7. Resources: default processes = floor(0.8 x logical CPUs / threads per process, measured), capped by available memory / measured peak; memory guard (Linux cgroup v2/v1 limit and use, else MemAvailable; Windows GlobalMemoryStatusEx) refuses below margin and stops children if headroom falls under it; Linux oom_score_adj 1000 on each child; Windows job object with a per-process memory limit; slow mode = Idle priority (nice 19) and affinity to N cores.
 8. Progress from child logs every 30 s, failures reported with the last log lines; outputs joined into one CSV with a # header (input, seed, gen version, location versions, game build, tool version, zones, processes, time).
+
+Added during the work (user requests, 2026-11-22/23): 10. Incremental output per zone once it and its neighbours are done, --resume from the run folder's own input copy, object dropping (measured, small effect). 11. Reuse of a server and BepInEx already on the machine (Steam install, /opt/valheim in a server container); --update opt-in for the tool's own install only; --own-server. 12. Failing loudly on an unsupported game version (wrapped patching and first frame, 10-minute report timeout); servers quit when the tool is gone (Linux). 13. Threads per process measured (1.6 under load) and memory per process measured (2.6-3.4 GB, flat), replacing the guesses. 14. Slow mode uses the fast frame settings (found in the live test). 15. build.sh packs the release bundles.
 <!-- SECTION:PLAN:END -->
 
 ## Implementation Notes
@@ -94,4 +96,10 @@ Peak per process is 2.6-2.9 GB on Windows whatever the seed or count (3.35 GB in
 Linux: the plugin now quits when its zonegen tool is gone (ZONEGEN_PARENT_PID, checked every 5 s through /proc), since on Linux nothing ends a child when the tool is killed or its session drops, and the memory guard lives in the tool.
 
 (3) zonegen killed with SIGKILL after the world loaded: its server logged "the zonegen tool is gone" 3 s later and was gone within 7 s. (A first run of (3) hung for 19 min in the test script, which waited for a world that the tool had correctly refused to load for lack of memory.)
+
+First attempt: only 186-240 zones/min (about 7 h): slow mode kept the server's frame cap and a 10 ms budget, so the generator idled on its own core. Game server during the run (45 sweeps): 30 fps throughout (29 at worst before), longest frame median 4.3 ms, 95th percentile 6.3, max 6.4 (before: 4.4, 7.0, 17.7 over the last 100 sweeps): no measurable effect. Host load average rose from about 0.4 to 3-5 (the generator's threads queueing for its one core). Nothing left running afterwards; the tool, its output and its work folder were removed from the container.
+
+Live test, server frames over the whole run (sweep log, Munin's per-sweep longest frame and fps): last 100 sweeps before: median 4.4 ms, 95th percentile 7.0, max 17.7, 9 over 5.5 ms, fps 29-30; during the run (45 sweeps): 4.3, 6.3, 6.4, 4 over 5.5 ms, fps 30; after (9 sweeps): 4.3, 6.3, 6.3, 1, fps 30. No measurable effect.
+Windows slow mode found broken by a final check (2026-11-23): one core at Idle priority, uncapped: the main thread spun at about 600 fps waiting for terrain and starved Unity's heightmap thread (Windows schedules strictly by thread priority; Linux ignores per-thread priorities for a normal user, so the live test was fine): about 100 zones/min and zones failing after 120 s. Fixed in the plugin: a frame in which every zone in progress is still waiting sleeps 2 ms. The probe result is now cached by the server executable when the install has no Steam manifest (checked: no probe server on the second run). build.sh packs dist/zonegen-0.1.0-win-x64.zip and -linux-x64.tar.gz (about 6.5 MB each, with the README).
+Not tested: the older .fwl/.db save format (no such world at hand; the current game writes only the folder format and converts older worlds on load).
 <!-- SECTION:NOTES:END -->

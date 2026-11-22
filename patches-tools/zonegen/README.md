@@ -120,10 +120,10 @@ working files are deleted at the end unless `--keep`.
 ## Build
 
 ```
-cd cli
-dotnet publish -c Release -r win-x64   -o ../dist/win-x64
-dotnet publish -c Release -r linux-x64 -o ../dist/linux-x64
+./build.sh     # dist/zonegen-<version>-win-x64.zip and dist/zonegen-<version>-linux-x64.tar.gz
 ```
+
+Each bundle holds the one executable and this README.
 
 Needs the .NET 8 SDK; the plugin builds against `../../libs` (the game's and BepInEx's assemblies,
 as Munin does) and is embedded.
