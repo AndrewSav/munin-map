@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-21T10:00:00Z'
-updated_date: '2026-11-21T22:03:52Z'
+updated_date: '2026-11-22T03:50:44Z'
 labels:
   - plugin
   - web
@@ -89,4 +89,6 @@ The test server has a fully generated copy of the world (TASK-27, `patches-tools
 - Deep North boss: its Hateful Blood has no fixed source in 1.0.21 (the only placement is in a disabled location).
 - Hildir's dungeons: already marked by Munin (Smouldering Tomb, Howling Cavern, Sealed Tower); her quest chests are mini-boss drops, not containers.
 - Poteitr does not grow wild; seeds only from Deep North village granary chests.
+
+So there is no fixed Hateful Blood source to map (checked at the location-plan level). Munin labels FimbulLocation as "Orb of Fimbulvinter", but a 1.0.21 world has none.
 <!-- SECTION:NOTES:END -->
