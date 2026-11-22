@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-21T10:23:00Z'
-updated_date: '2026-11-21T20:58:46Z'
+updated_date: '2026-11-22T19:39:10Z'
 labels:
   - tooling
 dependencies: []
@@ -49,7 +49,7 @@ Generate the whole world once on the test server with Munin switched off, so its
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Installed and verified: server log 'Loading [Server Devcommands 1.112]', 'Loading [Upgrade World 1.87]', 'Chainloader startup complete (2 loaded, 0 skipped, 0 failed)'; MuninMap not loaded. upgrade_world.cfg defaults: Automatic start false (zones_generate needs 'start'), World radius 10500, Root users empty (all admins). Server Devcommands 1.111+ disables the game's cheat tracking for commands by default. Downloads kept in the session scratchpad only.
+Installed and verified: server log 'Loading [Server Devcommands 1.112]', 'Loading [Upgrade World 1.87]', 'Chainloader startup complete (2 loaded, 0 skipped, 0 failed)'; MuninMap not loaded. upgrade_world.cfg defaults: Automatic start false (zones_generate needs 'start'), World radius 10500, Root users empty (all admins). Client: both in the client's BepInEx plugins folder. Server Devcommands 1.111+ disables the game's cheat tracking for commands by default. Downloads kept in the session scratchpad only.
 
 Client BepInEx was off (doorstop_config.ini enabled = false; last LogOutput.log 2026-11-04). Switched on for the run, original kept as doorstop_config.ini.bak-munin. The user plays without client mods and enables BepInEx only for utility and testing, so it must be switched off again when this task is done.
 
@@ -57,13 +57,13 @@ Trial: zones_generate max=1500 generated 752 of 754 zones in 57 s (about 13/s); 
 
 Debug build of Upgrade World (local clone, working tree only: references to munin-map/libs, Krafs.Publicizer, actions/GenerateDebug.cs logging refused zones) found the cause: first-time load of a location's prefab, and for dungeons its rooms (94 for MountainCave02, about 4/s), takes longer than Upgrade World's 10 s no-success limit, so the zone is counted as an error and skipped. The game drops the unfinished load once the zone stops being asked for, so later runs fail the same way. TrollCave02 at -12,-19 generated in a later run once other TrollCave02s had loaded it; DrakeNest01 at 24,-6 failed the same way. Terrain thread alive throughout. Live is not affected: the game's own generation retries every update with no limit. Plan agreed with the user: full run with the released 1.87 as shipped, then a cleanup run with a local build that waits 120 s instead of 10 s (parked as plugins-off/UpgradeWorld-debug-120s.dll). Released DLL kept as plugins-off/UpgradeWorld-1.87-release.dll. Munin off again for the run.
 
-Average about 450 zones/min; slowest in the Mistlands (about 280/min) and during autosaves. Next: cleanup run with the 120 s build.
+Full run with the released Upgrade World 1.87: 3 h; all but about 0.4% of the targeted zones generated, the rest refused for 10 s (expected from the slow first-time location loads). Slowest in the Mistlands (about 60% of the average rate) and during autosaves. Next: cleanup run with the 120 s build.
 
-Cleanup run with the local 120 s build: 329 zones targeted, 329 generated, 0 errors, 17 min (MorkBorg zones about 30 s each, MountainCave02 about 20 s). Server: Upgrade World and Server Devcommands removed from data/config/bepinex/plugins and from the server volume, parked in plugins-off with both Upgrade World builds; MuninMap.dll back in plugins. README.md: 'A fully generated world' section (use, go back, how it was made). Munin's performance on the full world is a separate step.
+Cleanup run with the local 120 s build: every remaining zone generated, 0 errors, 17 min (MorkBorg zones about 30 s each, MountainCave02 about 20 s). Saved (17 s for the full world), clean stop, copied worlds_local/<world> to data/snapshots/<world>-generated-<date> (byte totals match). The generated world loads its objects in under a minute. Server: Upgrade World and Server Devcommands removed from data/config/bepinex/plugins and from the server volume, parked in plugins-off with both Upgrade World builds; MuninMap.dll back in plugins. Client: doorstop_config.ini restored (enabled = false), both mod folders and their config files (upgrade_world.cfg, server_devcommands.cfg, alias.yaml, binds.yaml, permissions.yaml) removed. README.md: 'A fully generated world' section (use, go back, how it was made). Munin's performance on the full world is a separate step.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
 
 <!-- SECTION:FINAL_SUMMARY:BEGIN -->
-The test server now has a fully generated copy of the world as a snapshot (data/snapshots/<world>-generated-2026-11-22, about 4.1 million objects), next to the usual fresh copy of live. README says how to switch to the snapshot and back to live, and how it was made. Mods removed from server and client afterwards; client BepInEx off again. Not done here: Munin's performance on the full world.
+The test server now has a fully generated copy of the world as a snapshot (data/snapshots/<world>-generated-<date>), next to the usual fresh copy of live. Generated with Upgrade World 1.87 (in about 3 hours), then a cleanup run with a local build waiting 120 s instead of 10 s for the zones whose location files load slowly the first time (all generated). README says how to switch to the snapshot and back to live, and how it was made. Mods removed from server and client afterwards; client BepInEx off again. Not done here: Munin's performance on the full world.
 <!-- SECTION:FINAL_SUMMARY:END -->

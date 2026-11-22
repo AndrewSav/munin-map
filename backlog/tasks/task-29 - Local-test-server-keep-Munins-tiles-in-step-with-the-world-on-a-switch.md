@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T01:45:30Z'
-updated_date: '2026-11-22T01:55:19Z'
+updated_date: '2026-11-22T19:39:11Z'
 labels:
   - tooling
 dependencies: []
@@ -35,7 +35,7 @@ Munin draws the map into tiles, with trees, rocks and changed ground drawn in at
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-New use-snapshot.ps1: lists snapshots without an argument; with one, stops the server, replaces worlds_local/<world> with world/, and copies tiles/ into the volume as root with chown valheim (or clears z5-7 if the snapshot has no tiles). Tested: pull-save left map/5-7, veg and terra empty (zoom 4 and height kept), and Munin started redrawing from the live copy (441 overview tiles, 195 veg tiles in the first minute). use-snapshot took 108 s; all tiles back, owned valheim; README section updated (use-snapshot, why the tiles move with the world).
+Snapshot restructured: data/snapshots/<name>/world/ (the save) and tiles/ (Munin's tiles for that world, copied from the volume after the TASK-28 redraw; about 1 GB). pull-save.ps1 now always (also with -WorldOnly) deletes tiles/map/5-7, tiles/veg and tiles/terra in the volume. New use-snapshot.ps1: lists snapshots without an argument; with one, stops the server, replaces worlds_local/<world> with world/, and copies tiles/ into the volume as root with chown valheim (or clears z5-7 if the snapshot has no tiles). Tested: pull-save left map/5-7, veg and terra empty (zoom 4 and height kept), and Munin started redrawing from the live copy. use-snapshot took 108 s; all tiles back, owned valheim; Munin started with all its map tiles and no overview redraw, and a far-north veg tile came back in 88 ms. README section updated (use-snapshot, why the tiles move with the world).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

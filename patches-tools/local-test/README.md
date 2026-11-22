@@ -1,5 +1,6 @@
 # Local test server
 
+A Valheim dedicated server on this PC (Docker Desktop) running a copy of the live world with
 the Munin Map build from this checkout. Use it to test a change before it goes to the live
 server, where every deploy means a restart.
 
@@ -142,7 +143,7 @@ about 17 s. Munin's sweeps and drawing have a lot more to do on it.
 2. Munin was switched off for the run: its DLL moved out of `data/config/bepinex/plugins`, and
    the copy inside the server deleted (the start copies DLLs in but never deletes them).
    `deploy.ps1` puts it back.
-3. The
+3. In the game's F5 console: `zones_generate`, then `start`. A whole world took about 3 hours. The
    console only updates when reopened; `verbose` switches the progress to a zone count, and
    the server log has it too.
 4. 329 zones failed. Upgrade World gives up on a zone after 10 s without success, and some
@@ -166,6 +167,7 @@ and Munin settings. It changes these:
 | Starts the game directly (`image/fast-start.sh`) | about 35 s saved per start |
 | Updates only when `update.ps1` runs | part of the fast start; `deploy.ps1` warns when versions differ |
 | Server files on the `munin-test_server` volume | about 9 s faster to load than from a Windows drive |
+| Named `<world> test`, not public, no password | ports are bound to 127.0.0.1, so only this PC can connect |
 | Crossplay off | with crossplay the server takes no inbound UDP, so it can't be joined by IP |
 | No backups, scheduled restarts or status page | test only; the status page also needs a public server |
 | `STEAMCMD_ARGS` empty | re-checking every server file through a Windows-drive mount took ~38 s |

@@ -4,7 +4,7 @@ title: 'Show what is inside locations: chest contents and loose items, from the 
 status: To Do
 assignee: []
 created_date: '2026-11-22T01:45:34Z'
-updated_date: '2026-11-22T02:24:02Z'
+updated_date: '2026-11-22T19:42:17Z'
 labels:
   - plugin
   - web
@@ -16,7 +16,7 @@ ordinal: 29000
 ## Description
 
 <!-- SECTION:DESCRIPTION:BEGIN -->
-Munin's dungeon popups already list the loose pickables and mineables left inside a generated dungeon and count its chests (src/World/Dungeons.cs), but not what the chests hold, and outdoor locations (ruins, camps, towers, burial sites, shipwrecks) get nothing. The game decides a location's contents when its zone is generated, ghost generation included, and keeps them in the save: chest contents in the ZDO key "items" (Inventory.Save format, stacks already scaled by the world's loot setting), pickables with their rolled item, mineables, pots, nests and spawners. A random object that lost its roll leaves nothing, so the save is exact and no chances need modelling. Not in the save yet: creatures, and what pots, piles and rocks drop when broken. Ungenerated places stay unknowable. So for every generated location a map can show exactly what is there, which other maps (working from the seed outside the game) do not.
+Munin's dungeon popups already list the loose pickables and mineables left inside a generated dungeon and count its chests (src/World/Dungeons.cs), but not what the chests hold, and outdoor locations (ruins, camps, towers, burial sites, shipwrecks) get nothing. The game decides a location's contents when its zone is generated, ghost generation included, and keeps them in the save: chest contents in the ZDO key "items" (Inventory.Save format, stacks already scaled by the world's loot setting), pickables with their rolled item, mineables, pots, nests and spawners. A random object that lost its roll leaves nothing, so the save is exact and no chances need modelling. Checked on a fully generated test world: under 1% of dungeon chests were empty and none were unfilled, including chests deep in dungeons nobody has visited. Not in the save yet: creatures, and what pots, piles and rocks drop when broken. Ungenerated places stay unknowable. So for every generated location a map can show exactly what is there, which other maps (working from the seed outside the game) do not. Reference for which locations and objects matter, from the game data (Valheim 1.0.21): drop tables for 27 kinds of chest, contents of about 80 outdoor locations and of each dungeon theme, and the burial sites (dolmens, ship settings, graves, memorials, shipwrecks).
 <!-- SECTION:DESCRIPTION:END -->
 
 ## Acceptance Criteria
@@ -40,5 +40,5 @@ Munin's dungeon popups already list the loose pickables and mineables left insid
 <!-- SECTION:NOTES:BEGIN -->
 Not a shaped task yet, just an idea (user, 2026-11-22). Open question to settle when shaping it, if it is ever picked up: spoilers. The game fills every chest when its zone is generated, so the save knows the contents of chests nobody has opened, and anyone with the public map could see which burial chamber or ruin has the best loot before going there. Earlier spoiler handling to keep consistent with: the spoiler switch for planned locations (TASK-1) and the world seed hidden by default (TASK-15). Options: always show; show only once a player has visited or opened the place; show only with the spoiler switch on (reveal_all + the viewer's switch). An earlier draft criterion "an unvisited location's contents show without anyone having been there" was removed, as it presumed the answer.
 
-So they are the same in every generation of the world: a generated copy of the world (TASK-27) knows what live's chests will hold before anyone gets near them, not only after the zone is generated on live. Exceptions: burial chambers and Sunken crypts (interior turns with the random facing, about 775 dungeons) and the choice of unique sites (traders). This makes the spoiler question sharper: contents can leak from a test copy as well as from the live save.
+Spoilers, more (game code, 1.0.21): a location's contents (optional objects, chest loot, pickable items, most dungeon interiors) are seeded from the world seed and the zone, not drawn from a shared random state. So they are the same in every generation of the world: a generated copy of the world (TASK-27) knows what live's chests will hold before anyone gets near them, not only after the zone is generated on live. Exceptions: burial chambers and Sunken crypts (interior turns with the random facing, about 775 dungeons) and the choice of unique sites (traders). This makes the spoiler question sharper: contents can leak from a test copy as well as from the live save.
 <!-- SECTION:NOTES:END -->
