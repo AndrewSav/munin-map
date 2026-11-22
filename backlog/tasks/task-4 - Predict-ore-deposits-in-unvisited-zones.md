@@ -4,7 +4,7 @@ title: Predict ore deposits in unvisited zones
 status: To Do
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
-updated_date: '2026-11-22T02:24:01Z'
+updated_date: '2026-11-22T05:05:47Z'
 labels:
   - plugin
   - web
@@ -62,3 +62,10 @@ Ground truth for measuring a prediction: the TASK-27 snapshot, where every zone 
 <!-- DOD:BEGIN -->
 - [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+TASK-4.1 spike result (2026-11-22, details in doc-2 'Measured'): a client-free generator (patches-tools/zonegen) generated every ungenerated zone of the live copy in about 7.4 minutes with 4 processes (9.2 with start-up, 13.4 GB, 0 failures; Its deposits match the TASK-27 snapshot 99.3% (copper 100%, tin 99.9%, scrap 99.7%, silver 98.7%, obsidian 98.2%); the misses are what the seed doesn't decide (generation order near zone edges, randomly rotated locations).
+Recommendation (for the user to decide, criterion #8): the copy method is now practical. Build it as (a) a tool that generates a copy of a world headless and writes its ore deposits to a file (fast and parallel, or slow in the background next to the server), and (b) Munin loading that file and showing the deposits as predicted where the save has no real ones. Re-implementing placement in Munin (method 1) is no longer needed for this server; it would only matter to give predictions with no setup at all.
+<!-- SECTION:NOTES:END -->

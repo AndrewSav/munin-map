@@ -3,7 +3,7 @@ id: doc-2
 title: 'Ore placement: how the game places vegetation in a zone'
 type: specification
 created_date: '2026-11-21T08:53:00Z'
-updated_date: '2026-11-22T03:08:53Z'
+updated_date: '2026-11-22T05:05:28Z'
 ---
 How Valheim places vegetation, ore deposits included, when it generates a zone, and how far that could be reproduced for zones nobody has visited (TASK-4). Source: the decompiled game code (`assembly_valheim`, Valheim 1.0.21) and the game's asset data (`_ZoneSystem`, `_LocationList_*`), read on 2026-11-21. Each point says whether it was read in the code or data, or inferred. Nothing here has been tested.
 
@@ -210,3 +210,26 @@ Rough arithmetic, to be measured: about 2x per process from the above, times 8 p
 So the copy approach could have two workable forms: fast and parallel on a big machine, or slow next to the server. Either way it is per world, redone after a game update that changes generation, and wrong only where the seed doesn't decide things (randomly rotated locations, unique sites; see TASK-4).
 
 **What decides it:** how much of today's 450 zones a minute is waiting versus real work. A spike would measure one headless process in a tight loop on land zones only, without dungeon interiors: zones per minute and memory.
+
+## Measured (TASK-4.1, 2026-11-22)
+
+It is a small BepInEx plugin, switched on by environment variables, that waits until the world's objects have loaded, generates the ungenerated zones with `SpawnZone(zone, Ghost)`, writes the ore deposits it created to a CSV, and quits. `run.ps1` starts it in its own container with its own copy of the world.
+
+
+| Run | Zones/min | vs plain |
+|---|---|---|
+| plain loop, as Upgrade World (one zone per frame, wait on a refused zone) | 355-365 | 1x |
+| no saves; no dungeon interiors; vegetation cut after the last ore entry (each alone) | 351 / 406 / 405 | 1-1.14x |
+| zones back to back within a 30 ms frame budget, 8 in progress | 1,867 / 1,861 | 5.2x |
+| plus the frame-rate cap lifted | 3,334 / 3,326 | 9.3x |
+| everything | 3,602 / 3,535 | 10x |
+
+Keeping a small window of zones in progress matters: a first version that tried every pending zone each frame asked the heightmap builder (which keeps only 16 finished heightmaps) for hundreds at once, threw finished heightmaps away and gave slow, failing, timing-dependent runs. Memory is about 2 GB per process.
+
+
+*Upgrade World took 3 hours plus a 17-minute cleanup on the same machine: about 24x faster, and no client.
+
+*Generating one zone at a time matched 99.9% on the 2,000-zone set; with 8 zones in progress, about 1% of obsidian differs, because the order zones finish in changes which neighbouring objects exist to block near zone edges. Live generates in players' travel order, so live differs from any copy in the same way, plus near randomly rotated locations.
+
+
+**Upshot:** a generated copy is a practical way to get every ore deposit for a world: a whole world in under 10 minutes with 4 processes and about 13 GB, about half an hour with one process and about 3 GB, or in the background next to the live server without hurting it. It's 99% accurate, and the misses are the parts the seed doesn't decide. It still needs a copy of the world and a server install to run on, and redoing after a game update that changes generation.
