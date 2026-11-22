@@ -11,7 +11,7 @@
     <NuGetAudit>false</NuGetAudit>
     <OutputPath>bin\$(Configuration)\</OutputPath>
     <NoWarn>$(NoWarn);CS0618</NoWarn>
-    <Libs>$(MSBuildThisFileDirectory)..\..\libs\</Libs>
+    <Libs>$(MSBuildThisFileDirectory)..\..\..\libs\</Libs>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3"><PrivateAssets>all</PrivateAssets></PackageReference>

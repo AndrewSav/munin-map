@@ -30,8 +30,8 @@ $envFile = Get-LiveEnv
 $world = $envFile.WORLD_NAME
 $base = if ($Base) { $Base } else { Join-Path $lt "data\zonegen\base" }
 if (-not (Test-Path (Join-Path $base "worlds_local\$world"))) { throw "no base world in $base (see TASK-4.1 notes)" }
-$dll = Join-Path $here "bin\Release\ZoneGen.dll"
-if (-not (Test-Path $dll)) { throw "build ZoneGen first: dotnet build -c Release in $here" }
+$dll = Join-Path $here "plugin\bin\Release\ZoneGen.dll"
+if (-not (Test-Path $dll)) { throw "build ZoneGen first: dotnet build -c Release in $here\plugin" }
 
 $run = Join-Path $lt "data\zonegen\runs\$Tag"
 if (Test-Path $run) { Remove-Item $run -Recurse -Force }

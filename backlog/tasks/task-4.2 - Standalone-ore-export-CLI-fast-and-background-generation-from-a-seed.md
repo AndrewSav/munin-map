@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-22T06:02:37Z'
-updated_date: '2026-11-22T07:58:37Z'
+updated_date: '2026-11-22T11:08:21Z'
 labels:
   - tooling
 dependencies: []
@@ -48,6 +48,9 @@ Ref: TASK-4.1 (patches-tools/zonegen: ZoneGen.cs, run.ps1, bench.ps1), doc-2 'Me
 - [ ] #15 Results are recorded in TASK-4 notes as input to criterion #8; the tool lives in patches-tools and nothing goes into the product
 - [ ] #16 The README says the tool must run the same game version and world-generation mods as the world server, and that the seed-only input is exact only for worlds whose location plan was never redone by a location-version change
 - [ ] #17 The main input is a copy of a world save: the world folder of the current chunked format (_main.N.fwl2, .db2, .chunks, .ok and .chunk files, one save number) or the older .fwl and .db pair; the tool generates the zones that world has not generated yet and keeps its own locations. A seed name plus world-generation version (default 2) is accepted instead for a world known to be fresh. A utility command prints, from a save, the seed, world-generation version and location version (from .db2 or .db), next to the location version of the installed game, and warns when they differ (the server re-plans unplaced locations on its next start)
+- [ ] #18 Each process writes its deposits as it goes: a zone is written once it and its neighbours are generated, so a stopped or killed run keeps everything written so far
+- [ ] #19 zonegen run --resume continues a stopped run: zones already written are kept and skipped, the rest are generated, and the output is the same as an uninterrupted run apart from generation-order differences near the skipped zones
+- [ ] #20 A process drops the objects of zones that are written and have no ungenerated neighbour left; its effect on memory and accuracy is measured against keeping them and recorded
 <!-- AC:END -->
 
 ## Definition of Done
@@ -67,3 +70,28 @@ Ref: TASK-4.1 (patches-tools/zonegen: ZoneGen.cs, run.ps1, bench.ps1), doc-2 'Me
 7. Resources: default processes = floor(0.8 x logical CPUs / threads per process, measured), capped by available memory / measured peak; memory guard (Linux cgroup v2/v1 limit and use, else MemAvailable; Windows GlobalMemoryStatusEx) refuses below margin and stops children if headroom falls under it; Linux oom_score_adj 1000 on each child; Windows job object with a per-process memory limit; slow mode = Idle priority (nice 19) and affinity to N cores.
 8. Progress from child logs every 30 s, failures reported with the last log lines; outputs joined into one CSV with a # header (input, seed, gen version, location versions, game build, tool version, zones, processes, time).
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built (2026-11-22): plugin moved to patches-tools/zonegen/plugin (seed-created worlds, prefab list, vegcut auto, probe mode, re-plan detection, @info/@progress/@done lines in its own log); CLI in patches-tools/zonegen/cli (.NET 8, self-contained single file, about 12 MB per platform, plugin embedded); compare.py for accuracy.
+Against the TASK-27 snapshot over every zone the base save had not generated: 99.2% (copper 99.9, tin 99.9, scrap 99.9, silver 97.3, obsidian 98.1), as the spike (99.3%).
+Bugs found by the first runs: a folder path with a trailing slash gave an empty world name and the server silently created a new random world; fixed, and the tool now stops if a process loads a world whose seed or generated-zone count differs from the save. Bare Debian 12: .NET aborted on missing libssl; the start-up check now lists libssl, CA certificates, 32-bit libgcc (steamcmd) and libatomic with the install lines.
+
+Linux and Windows outputs match each other 99.4% (generation order near zone edges differs between parallel runs).
+
+The machine sat at about 60% CPU and 62% memory: the flat 3.5 GB per process estimate limited it. Memory grows with the zones a process generates (about 1.5 GB base plus a share of about 8 GB of world objects in these runs), so the estimate is to be replaced by a measured model (criterion #6).
+
+So this world was not re-planned since it was created, and a seed-only run reproduces it apart from the unique sites already settled.
+
+Added (user request 2026-11-22): incremental writing, resume and object dropping. A zone is written (rows flushed, then its line in <tag>-zones.txt) once it and its 8 neighbours are done in that process; with ZONEGEN_DROP its objects are then released (ZDOMan sector list and m_objectsByID, ZDOPool.Release: what HandleDestroyedZDO does without the network part). The run folder keeps its own copy of the input and run.txt; `zonegen run --resume DIR` folds the written zones into prev- files (rows of a zone missing from the zones file are dropped), recopies the world and skips those zones.
+Installs (user request): by default the tool now uses a server already on the machine (Steam's Valheim dedicated server from the registry and libraryfolders.vdf, or /opt/valheim/bepinex or /opt/valheim/server in a server container, or the usual Linux Steam paths) and that server's BepInEx if it has one; else its own install, reused as it is. --update (opt-in, on run and setup) updates only its own install; --own-server forces its own.
+Game updates: the plugin binds to game members by name at run time, so it survives patches that don't change what it uses; one that does now fails loudly: Harmony patching and the first-frame code are wrapped and write an @error line, and the tool stops a process that hasn't reported in 10 minutes.
+
+Object dropping measured (2026-11-22): whole world, 5 processes: 99.2% against the snapshot (same as without), peak 3.02 GB per process (3.09 without), 13.65 GB summed (14.9). One process, 12,000 central zones: managed heap 320-340 MB with dropping, 460 MB without; process total 1.5 to 1.9 GB either way. So a process's memory is mostly the game assets it has loaded for the biomes and location types it has met, which stay referenced: about 3.0-3.4 GB per process for a whole-world run, whatever the process count. The earlier "base plus a share of the objects" model was wrong; the flat estimate per process is the right shape. Dropping stays on by default (no accuracy cost, about 0.1 GB less).
+
+Peak per process is 2.6-2.9 GB on Windows whatever the seed or count (3.35 GB in the Linux run), so the memory check keeps 3.5 GB per process.
+Linux: the plugin now quits when its zonegen tool is gone (ZONEGEN_PARENT_PID, checked every 5 s through /proc), since on Linux nothing ends a child when the tool is killed or its session drops, and the memory guard lives in the tool.
+
+(3) zonegen killed with SIGKILL after the world loaded: its server logged "the zonegen tool is gone" 3 s later and was gone within 7 s. (A first run of (3) hung for 19 min in the test script, which waited for a world that the tool had correctly refused to load for lack of memory.)
+<!-- SECTION:NOTES:END -->
