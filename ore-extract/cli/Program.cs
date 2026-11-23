@@ -1,6 +1,7 @@
 // ore-extract: generate the ungenerated zones of a copy of a Valheim world on a headless dedicated
 // server, and write out the ore deposits (or other prefabs) that generation placed. TASK-4.2.
 using System.Reflection;
+using OreExtract.Core;
 
 namespace OreExtractCli;
 
@@ -46,6 +47,13 @@ Other (run):
                        are released once it is written, so memory stays near each process's base)
   --resume RUN_DIR     continue a run that was stopped (memory guard, Ctrl+C, a crash): its written
                        zones are kept and skipped; the other options are the stopped run's
+  --run-dir DIR        the run's working folder (default: a new one under the work folder); it
+                       must not hold a run already (resume that one instead)
+
+For a program that runs the tool (run):
+  --status FILE        keep a key=value file saying how the run is going (state, zones done and in
+                       all, zones per minute, seconds left, the run folder, the reason for a failure)
+  --parent-pid PID     stop (the run can be resumed) when that process is gone
 
 Common:
   --work-dir DIR       where downloads and runs live (default: %LOCALAPPDATA%\ore-extract or
@@ -64,7 +72,14 @@ Common:
     {
         try
         {
+            Install.ToolVersion = ToolVersion;
+            InstallSetup.Hook();
             var a = new Args(argv);
+            if (a.Command == "run")
+            {
+                Status.Init(a.Get("--status"));
+                if (a.Has("--parent-pid")) ParentWatch.Start(a.Int("--parent-pid", 0));
+            }
             switch (a.Command)
             {
                 case "run": return Runner.Run(a);
@@ -78,54 +93,14 @@ Common:
         catch (ToolError e)
         {
             Console.Error.WriteLine("error: " + e.Message);
+            Status.Failed(e.Message);
             return 1;
         }
-    }
-}
-
-internal sealed class ToolError(string message) : Exception(message);
-
-internal sealed class Args
-{
-    public readonly string Command = "";
-    private readonly Dictionary<string, string> values = new();
-    private readonly HashSet<string> flags = new();
-    private static readonly HashSet<string> FlagNames = ["--slow", "--keep", "--no-guard", "--update", "--no-probe", "--no-drop", "--own-server"];
-
-    public readonly string[] Raw;
-
-    public Args(string[] argv)
-    {
-        Raw = argv;
-        int i = 0;
-        if (argv.Length > 0 && !argv[0].StartsWith("-")) Command = argv[i++];
-        else if (argv.Length > 0 && (argv[0] == "--help" || argv[0] == "-h")) { Command = "help"; return; }
-        for (; i < argv.Length; i++)
+        catch (Exception e)
         {
-            string k = argv[i];
-            if (k == "--help" || k == "-h") { Command = "help"; return; }
-            if (!k.StartsWith("--")) throw new ToolError($"unexpected argument '{k}'");
-            if (FlagNames.Contains(k)) { flags.Add(k); continue; }
-            if (i + 1 >= argv.Length) throw new ToolError($"{k} needs a value");
-            values[k] = argv[++i];
+            Console.Error.WriteLine("error: " + e);
+            Status.Failed(e.GetType().Name + ": " + e.Message);
+            return 1;
         }
-    }
-
-    public string Get(string k, string d = null) => values.TryGetValue(k, out var v) ? v : d;
-    public bool Has(string k) => flags.Contains(k) || values.ContainsKey(k);
-
-    public int Int(string k, int d)
-    {
-        if (!values.TryGetValue(k, out var v)) return d;
-        if (!int.TryParse(v, out int r) || r < 0) throw new ToolError($"{k} needs a whole number, not '{v}'");
-        return r;
-    }
-
-    public double Num(string k, double d)
-    {
-        if (!values.TryGetValue(k, out var v)) return d;
-        if (!double.TryParse(v, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double r) || r < 0)
-            throw new ToolError($"{k} needs a number, not '{v}'");
-        return r;
     }
 }

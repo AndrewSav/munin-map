@@ -154,7 +154,7 @@ namespace MuninMap
 
         // No Config.Save() here: BepInEx writes the file when the entries are bound,
         // and saving on shutdown overwrote edits made while the server was running.
-        public void OnDestroy() { }
+        public void OnDestroy() { Patches.ServerExtract.Stop("Munin was unloaded"); }   // patches: TASK-4 (was: empty)
 
         // ---------------------------------------------------------------- world lifecycle
 

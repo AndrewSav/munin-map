@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TASK-4.5: ore-extract's supervisor (copying the save, setting up and starting the generation
+     servers, watching them, guarding memory, joining their output), shared by
+       ../cli, the ore-extract command-line tool (.NET 8), and
+       Munin (net48, on the game's Mono), which runs it in-process for predict_ore = server and
+       merges this library into MuninMap.dll (src/Directory.Build.targets).
+     The OreExtract plugin (../plugin) is built first and embedded here. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net48;net8.0</TargetFrameworks>
+    <LangVersion>12.0</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AssemblyName>OreExtract.Core</AssemblyName>
+    <RootNamespace>OreExtract.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NuGetAudit>false</NuGetAudit>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <PluginDll>$(MSBuildThisFileDirectory)../plugin/bin/Release/OreExtract.dll</PluginDll>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3"><PrivateAssets>all</PrivateAssets></PackageReference>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+  <!-- forward slashes: the command runs as written on Linux too (CI) -->
+  <Target Name="BuildPlugin" BeforeTargets="PrepareForBuild">
+    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)../plugin/OreExtract.csproj&quot; -c Release -nologo -v q" />
+  </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="$(PluginDll)" LogicalName="OreExtract.dll" />
+  </ItemGroup>
+</Project>

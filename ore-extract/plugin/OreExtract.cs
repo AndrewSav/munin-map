@@ -129,7 +129,10 @@ namespace OreExtract
         {
             if (!int.TryParse(Env("OREEXTRACT_PARENT_PID"), out int pid) || Application.platform != RuntimePlatform.LinuxServer && Application.platform != RuntimePlatform.LinuxPlayer) return;
             bool alive;
-            try { alive = File.Exists($"/proc/{pid}/comm") && File.ReadAllText($"/proc/{pid}/comm").Trim().StartsWith("ore-extract"); }
+            // OREEXTRACT_PARENT_COMM: the parent's process name, so a reused pid isn't taken for it (the CLI,
+            // or the game server Munin runs the supervisor in: TASK-4.5)
+            string comm = Env("OREEXTRACT_PARENT_COMM", "ore-extract");
+            try { alive = File.Exists($"/proc/{pid}/comm") && File.ReadAllText($"/proc/{pid}/comm").Trim() == comm; }
             catch { alive = false; }
             if (alive) return;
             Log($"@error the ore-extract tool (pid {pid}) is gone; stopping (resume the run to continue)");

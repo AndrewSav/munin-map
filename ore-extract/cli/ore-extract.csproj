@@ -2,7 +2,8 @@
 <!-- TASK-4.2/4.3: ore-extract, a standalone CLI that generates a copy of a Valheim world headless and
      writes out its ore deposits. Shipped with the fork's releases. Built by ../build.sh:
        dotnet publish -c Release -r win-x64    |    dotnet publish -c Release -r linux-x64
-     The OreExtract plugin (../plugin) is built first and embedded. The release workflow passes the
+     The supervisor is in ../core (shared with Munin, TASK-4.5), which builds and embeds the
+     OreExtract plugin (../plugin). The release workflow passes the
      release stamp as InformationalVersion, so `ore-extract version` names the Munin release. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
@@ -22,16 +23,11 @@
     <PublishTrimmed>true</PublishTrimmed>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <DebugType>embedded</DebugType>
-    <PluginDll>$(MSBuildThisFileDirectory)../plugin/bin/Release/OreExtract.dll</PluginDll>
   </PropertyGroup>
   <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
     <SelfContained>true</SelfContained>
   </PropertyGroup>
-  <!-- forward slashes: the command runs as written on Linux too (CI) -->
-  <Target Name="BuildPlugin" BeforeTargets="PrepareForBuild">
-    <Exec Command="dotnet build &quot;$(MSBuildThisFileDirectory)../plugin/OreExtract.csproj&quot; -c Release -nologo -v q" />
-  </Target>
   <ItemGroup>
-    <EmbeddedResource Include="$(PluginDll)" LogicalName="OreExtract.dll" />
+    <ProjectReference Include="../core/OreExtract.Core.csproj" />
   </ItemGroup>
 </Project>

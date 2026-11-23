@@ -1,0 +1,15 @@
+<!-- patches: TASK-4 (TASK-4.5). Fork only (see PATCHES.md): MSBuild imports this file into MuninMap.csproj
+     by itself, so upstream's project file stays as it is.
+     predict_ore = server runs ore-extract's supervisor in-process (Patches/ServerExtract.cs): the shared
+     library ore-extract/core (which carries ore-extract's small game-server plugin) is built with Munin
+     and merged into MuninMap.dll with the other libraries (ILRepack.targets). -->
+<Project>
+  <ItemGroup>
+    <ProjectReference Include="..\ore-extract\core\OreExtract.Core.csproj" />
+  </ItemGroup>
+  <Target Name="ForkRepackInputs" BeforeTargets="ILRepacker">
+    <ItemGroup>
+      <InputAssemblies Include="$(OutputPath)OreExtract.Core.dll" />
+    </ItemGroup>
+  </Target>
+</Project>

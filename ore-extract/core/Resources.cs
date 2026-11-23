@@ -3,9 +3,9 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace OreExtractCli;
+namespace OreExtract.Core;
 
-internal static class Mem
+public static class Mem
 {
     public const double GB = 1024.0 * 1024 * 1024;
 
@@ -14,7 +14,7 @@ internal static class Mem
     // cache, as Docker counts it). The smaller wins.
     public static long Available(out string where)
     {
-        if (OperatingSystem.IsWindows())
+        if (Compat.IsWindows)
         {
             var s = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
             where = "system";
@@ -29,7 +29,7 @@ internal static class Mem
 
     public static long Total()
     {
-        if (OperatingSystem.IsWindows())
+        if (Compat.IsWindows)
         {
             var s = new MEMORYSTATUSEX { dwLength = (uint)Marshal.SizeOf<MEMORYSTATUSEX>() };
             return GlobalMemoryStatusEx(ref s) ? (long)s.ullTotalPhys : 0;
@@ -41,7 +41,7 @@ internal static class Mem
     {
         foreach (var line in File.ReadLines("/proc/meminfo"))
             if (line.StartsWith(key + ":"))
-                return long.Parse(line.Split(' ', StringSplitOptions.RemoveEmptyEntries)[1]) * 1024;
+                return long.Parse(line.Split([' '], StringSplitOptions.RemoveEmptyEntries)[1]) * 1024;
         return 0;
     }
 
@@ -114,13 +114,13 @@ internal static class Mem
 }
 
 // the kernel's choice when memory runs out (Linux) or a hard cap (Windows): the generator goes first
-internal sealed class Protection : IDisposable
+public sealed class Protection : IDisposable
 {
     private IntPtr job;
 
     public Protection(long perProcessLimitBytes)
     {
-        if (!OperatingSystem.IsWindows()) return;
+        if (!Compat.IsWindows) return;
         job = CreateJobObject(IntPtr.Zero, null);
         if (job == IntPtr.Zero) return;
         var info = new JOBOBJECT_EXTENDED_LIMIT_INFORMATION();
@@ -143,7 +143,7 @@ internal sealed class Protection : IDisposable
     // exiting) ends it.
     public string Apply(Process p)
     {
-        if (OperatingSystem.IsWindows())
+        if (Compat.IsWindows)
         {
             if (job == IntPtr.Zero || !AssignProcessToJobObject(job, p.Handle)) return "memory cap NOT set (job object failed)";
             return "memory cap set (job object)";
@@ -187,7 +187,7 @@ internal sealed class Protection : IDisposable
     [DllImport("kernel32.dll", SetLastError = true)] private static extern bool CloseHandle(IntPtr h);
 }
 
-internal static class Ports
+public static class Ports
 {
     private static readonly HashSet<int> taken = new();
 
@@ -210,18 +210,18 @@ internal static class Ports
     }
 }
 
-internal static class Cpu
+public static class Cpu
 {
     // logical CPUs this process may use (.NET counts affinity and container CPU limits)
     public static int Logical => Environment.ProcessorCount;
 
     // the highest-numbered n CPUs of those this process may use
-    public static IntPtr AffinityMask(int n)
+    public static ulong AffinityMask(int n)
     {
-        long mask = (long)Process.GetCurrentProcess().ProcessorAffinity;
-        var bits = Enumerable.Range(0, 64).Where(b => (mask & (1L << b)) != 0).ToList();
-        long m = 0;
-        foreach (var b in bits.Skip(Math.Max(0, bits.Count - n))) m |= 1L << b;
-        return (IntPtr)m;
+        ulong mask = ProcCtl.CurrentAffinity();
+        var bits = Enumerable.Range(0, 64).Where(b => (mask & (1UL << b)) != 0).ToList();
+        ulong m = 0;
+        foreach (var b in bits.Skip(Math.Max(0, bits.Count - n))) m |= 1UL << b;
+        return m;
     }
 }

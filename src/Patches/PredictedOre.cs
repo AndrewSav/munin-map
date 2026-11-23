@@ -25,7 +25,7 @@ namespace MuninMap.Patches
     internal static class PredictedOre
     {
         public const string FileName = "predicted-ore.csv";
-        public static string Mode = "off";   // off | file (server and in-place come with TASK-4.5 and 4.6)
+        public static string Mode = "off";   // off | file | server (TASK-4.5: ServerExtract makes the file); in-place comes with TASK-4.6
 
         private struct Deposit { public byte kind; public int x, z; public Vector2s zone; }
 
@@ -48,16 +48,17 @@ namespace MuninMap.Patches
         private static bool started;
         private static bool missingLogged;   // the missing file is logged once, until it appears
 
-        public static bool On => Mode == "file" && MuninConfig.REVEAL_ALL;
+        public static bool On => (Mode == "file" || Mode == "server") && MuninConfig.REVEAL_ALL;
 
         public static void Bind(ConfigFile config)
         {
             Mode = config.Bind("Server", "predict_ore", Mode, new ConfigDescription(
                 "Show predicted ore deposits in zones nobody has visited yet (needs reveal_all = true). "
                 + "off: none. file: from an extract made with ore-extract and copied into this world's Munin data folder as "
-                + FileName + " (see docs/ADVANCED.md, Predicted ore).",
-                new AcceptableValueList<string>("off", "file"))).Value;
-            if (Mode != "file") Mode = "off";
+                + FileName + "; server: Munin makes that extract itself, in the background on this server "
+                + "(half an hour to an hour and a half, up to 3.5 GB of memory, progress in the page's Server details; see docs/ADVANCED.md, Predicted ore).",
+                new AcceptableValueList<string>("off", "file", "server"))).Value;
+            if (Mode != "file" && Mode != "server") Mode = "off";
         }
 
         public static void AddTo(Dictionary<string, object> config)
@@ -73,6 +74,8 @@ namespace MuninMap.Patches
             genSince.Clear(); knownGen = null;
             all = new Deposit[0]; shown = new Deposit[0]; status = "no file"; madeFor = null;
             missingLogged = false;
+            gameNow = global::Version.CurrentVersion.ToString();
+            ServerExtract.Load(worldDataPath);
             if (!On) return;   // reveal_all off or predict_ore off: nothing read
             if (!started) { started = true; StaticCoroutine.Start(Watch()); }
         }
@@ -126,7 +129,7 @@ namespace MuninMap.Patches
             if (!fi.Exists)
             {
                 if (fileSize != -1 || all.Length > 0) { all = new Deposit[0]; status = "no file"; madeFor = null; changed = true; }
-                if (!missingLogged) { missingLogged = true; ZLog.Log("MuninMap: predicted ore: no " + FileName + " in " + worldDir + " (predict_ore = file); nothing shown"); }
+                if (!missingLogged && Mode == "file") { missingLogged = true; ZLog.Log("MuninMap: predicted ore: no " + FileName + " in " + worldDir + " (predict_ore = file); nothing shown"); }
                 fileSize = -1; fileTime = DateTime.MinValue;
             }
             else if (fi.LastWriteTimeUtc != fileTime || fi.Length != fileSize)
@@ -148,6 +151,7 @@ namespace MuninMap.Patches
                 yield break;
             }
             if (all.Length > 0 && status == "waiting for the world to load") status = "ok";
+            ServerExtract.Step(status == "ok" && madeFor != null && madeFor == gameNow, gameNow);
             int count = Generated()?.Count ?? -1;
             int veg = OreLayer.VegetationVersion;
             float now = Time.realtimeSinceStartup;
@@ -283,6 +287,7 @@ namespace MuninMap.Patches
         // Before upstream's routing (from Access.Handle): true when this request was answered here
         public static bool Handle(HttpRequestEventArgs e, string path, bool post)
         {
+            if (path == "/data/ore-extract.json" && !post) return ServerExtract.Handle(e);
             if (path != "/data/predicted-ore.json") return false;
             if (post) return false;
             if (!On) return Access.Json(e, 200, "{\"on\":false}");

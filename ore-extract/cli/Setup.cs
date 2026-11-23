@@ -6,47 +6,29 @@ using System.Formats.Tar;
 using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
+using OreExtract.Core;
 
 namespace OreExtractCli;
 
-internal sealed class Install
+// the CLI's part of Install (core/Install.cs): finding an install on this machine and downloading
+// what's missing; Program sets the hooks
+internal static class InstallSetup
 {
-    // BepInExPack_Valheim as the live and test servers run it (TASK-4.2, 2026-11-22)
-    public const string BepInExVersion = "5.4.2360";
+    private const string BepInExVersion = Install.BepInExVersion;
     private const string BepInExUrl = "https://thunderstore.io/package/download/denikson/BepInExPack_Valheim/" + BepInExVersion + "/";
     private const string BepInExSha256 = "6bca77b1016acfe0ffaebb6534c84b12ae8d12e5a96abbf59ec6e4526204fc6f";
     private const string SteamCmdWin = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
     private const string SteamCmdLinux = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz";
-    public const string ServerAppId = "896660";
+    private const string ServerAppId = Install.ServerAppId;
+    private static bool IsWindows => Install.IsWindows;
+    private static string ExeIn(string dir) => Install.ExeIn(dir);
+    private static void Say(string s) => Install.Say(s);
 
-    public string WorkDir, ServerDir, BepInExDir;
-    public bool ManagedServer, BepInExReused;
-    public string ServerSource;   // how the server was chosen, for the log
-    public static bool IsWindows => OperatingSystem.IsWindows();
-    public string ServerExe => Path.Combine(ServerDir, IsWindows ? "valheim_server.exe" : "valheim_server.x86_64");
-
-    public static Install From(Args a)
+    public static void Hook()
     {
-        var i = new Install { WorkDir = Path.GetFullPath(a.Get("--work-dir") ?? DefaultWorkDir()) };
-        Directory.CreateDirectory(i.WorkDir);
-        i.BepInExDir = Path.Combine(i.WorkDir, "bepinex-" + BepInExVersion);
-        // which server: --server-dir; else one already on this machine (Steam's, or a server
-        // container's), which matches what that machine runs; else this tool's own (--own-server
-        // forces it), downloaded on first use
-        string sd = a.Get("--server-dir"), found = null;
-        if (sd == null && !a.Has("--own-server")) found = FindExisting(out i.ServerSource);
-        i.ManagedServer = sd == null && found == null;
-        i.ServerDir = Path.GetFullPath(sd ?? found ?? Path.Combine(i.WorkDir, "server"));
-        if (sd != null) i.ServerSource = "--server-dir";
-        else if (found == null) i.ServerSource = "ore-extract's own install";
-        // a server that has BepInEx brings its own copy: use it rather than download one
-        string core = Path.Combine(i.ServerDir, "BepInEx", "core", "BepInEx.Preloader.dll");
-        string loader = IsWindows ? Path.Combine(i.ServerDir, "winhttp.dll") : Path.Combine(i.ServerDir, "doorstop_libs", "libdoorstop_x64.so");
-        if (!i.ManagedServer && File.Exists(core) && File.Exists(loader)) { i.BepInExDir = i.ServerDir; i.BepInExReused = true; }
-        return i;
+        Install.FindExisting = () => { string d = FindExisting(out string src); return (d, src); };
+        Install.Ensure = EnsureAll;
     }
-
-    private static string ExeIn(string dir) => Path.Combine(dir, IsWindows ? "valheim_server.exe" : "valheim_server.x86_64");
 
     // an existing dedicated server install this tool can use without changing it
     private static string FindExisting(out string source)
@@ -95,33 +77,26 @@ internal sealed class Install
         return null;
     }
 
-    private static string DefaultWorkDir()
-    {
-        if (IsWindows) return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ore-extract");
-        string xdg = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-        string home = Environment.GetEnvironmentVariable("HOME") ?? "/tmp";
-        return Path.Combine(string.IsNullOrEmpty(xdg) ? Path.Combine(home, ".local", "share") : xdg, "ore-extract");
-    }
-
-    public void EnsureAll(bool update = false)
+    private static void EnsureAll(Install i, bool update)
     {
         if (!IsWindows && !(OperatingSystem.IsLinux())) throw new ToolError("only Windows and Linux are supported");
         if (System.Runtime.InteropServices.RuntimeInformation.OSArchitecture != System.Runtime.InteropServices.Architecture.X64)
             throw new ToolError("the Valheim dedicated server needs an x64 machine");
-        if (!IsWindows) LinuxPreflight(steamcmd: ManagedServer && (!File.Exists(ServerExe) || update));
-        if (!BepInExReused) EnsureBepInEx();
-        if (ManagedServer) EnsureServer(update);
+        if (!IsWindows) LinuxPreflight(steamcmd: i.ManagedServer && (!File.Exists(i.ServerExe) || update));
+        if (!i.BepInExReused) EnsureBepInEx(i);
+        if (i.ManagedServer) EnsureServer(i, update);
         else
         {
-            CheckExistingServer();
-            if (update) Say($"--update: the server at {ServerDir} isn't ore-extract's own install, so it isn't updated here; update it the way it is normally updated (or use --own-server)");
+            i.CheckExistingServer();
+            if (update) Say($"--update: the server at {i.ServerDir} isn't ore-extract's own install, so it isn't updated here; update it the way it is normally updated (or use --own-server)");
         }
-        Say($"server: {ServerDir} ({ServerSource}, build {BuildId() ?? "?"}); BepInEx: {(BepInExReused ? "the server's own" : $"{BepInExVersion} downloaded by ore-extract")}");
+        Say($"server: {i.ServerDir} ({i.ServerSource}, build {i.BuildId() ?? "?"}); BepInEx: {(i.BepInExReused ? "the server's own" : $"{BepInExVersion} downloaded by ore-extract")}");
     }
 
     // ---- BepInEx ----
-    private void EnsureBepInEx()
+    private static void EnsureBepInEx(Install i)
     {
+        string BepInExDir = i.BepInExDir, WorkDir = i.WorkDir;
         if (File.Exists(Path.Combine(BepInExDir, "BepInEx", "core", "BepInEx.Preloader.dll"))) return;
         string cache = Path.Combine(WorkDir, "downloads");
         Directory.CreateDirectory(cache);
@@ -144,8 +119,11 @@ internal sealed class Install
     }
 
     // ---- server through steamcmd ----
-    private void EnsureServer(bool update)
+    private static void EnsureServer(Install i, bool update)
     {
+        string WorkDir = i.WorkDir, ServerDir = i.ServerDir, ServerExe = i.ServerExe;
+        Func<string> BuildId = i.BuildId;
+        void InstallDoorstopWindows() => InstallDoorstop(i);
         if (File.Exists(ServerExe) && !update) { InstallDoorstopWindows(); return; }
         string steamDir = Path.Combine(WorkDir, "steamcmd");
         string steamcmd = Path.Combine(steamDir, IsWindows ? "steamcmd.exe" : "steamcmd.sh");
@@ -186,33 +164,14 @@ internal sealed class Install
 
     // Windows loads BepInEx through doorstop's winhttp.dll beside the server exe; only in the
     // install this tool manages
-    private void InstallDoorstopWindows()
+    private static void InstallDoorstop(Install i)
     {
-        if (!IsWindows || !ManagedServer) return;
+        if (!IsWindows || !i.ManagedServer) return;
         foreach (var f in new[] { "winhttp.dll", "doorstop_config.ini" })
         {
-            string src = Path.Combine(BepInExDir, f), dst = Path.Combine(ServerDir, f);
+            string src = Path.Combine(i.BepInExDir, f), dst = Path.Combine(i.ServerDir, f);
             if (!File.Exists(dst) || Sha256(dst) != Sha256(src)) File.Copy(src, dst, true);
         }
-    }
-
-    private void CheckExistingServer()
-    {
-        if (!File.Exists(ServerExe)) throw new ToolError($"no Valheim dedicated server in {ServerDir} ({Path.GetFileName(ServerExe)} not found)");
-        if (IsWindows && !File.Exists(Path.Combine(ServerDir, "winhttp.dll")))
-            throw new ToolError($"{ServerDir} has no BepInEx (winhttp.dll); this tool doesn't change a server it doesn't manage. Leave out --server-dir to let it install its own.");
-    }
-
-    public string BuildId()
-    {
-        string acf = Path.Combine(ServerDir, "steamapps", $"appmanifest_{ServerAppId}.acf");
-        if (!File.Exists(acf)) return null;
-        foreach (var line in File.ReadLines(acf))
-        {
-            var t = line.Trim();
-            if (t.StartsWith("\"buildid\"")) return t.Split('"', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.Trim();
-        }
-        return null;
     }
 
     // ---- Linux system libraries ----
@@ -235,18 +194,9 @@ internal sealed class Install
             "\n  Fedora/RHEL:   sudo dnf install " + string.Join(" ", missing.Select(m => m.rpm)));
     }
 
-    // ---- the plugin, embedded in this tool ----
-    public static byte[] PluginBytes()
-    {
-        using var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("OreExtract.dll") ?? throw new ToolError("plugin missing from this build");
-        using var ms = new MemoryStream();
-        s.CopyTo(ms);
-        return ms.ToArray();
-    }
-
     // ---- helpers ----
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromMinutes(10) };
-    static Install() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("ore-extract/" + Program.ToolVersion);
+    static InstallSetup() => Http.DefaultRequestHeaders.UserAgent.ParseAdd("ore-extract/" + Program.ToolVersion);
 
     private static void Download(string url, string path)
     {
@@ -266,8 +216,6 @@ internal sealed class Install
         using var fs = File.OpenRead(path);
         return Convert.ToHexString(SHA256.HashData(fs)).ToLowerInvariant();
     }
-
-    public static void Say(string s) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {s}");
 }
 
 internal static class SetupCommand

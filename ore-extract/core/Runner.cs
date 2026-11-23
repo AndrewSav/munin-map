@@ -5,7 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 
-namespace OreExtractCli;
+namespace OreExtract.Core;
 
 internal sealed class Worker
 {
@@ -20,7 +20,7 @@ internal sealed class Worker
     public double CpuSeconds;          // CPU time used so far (all its threads)
     public DateTime StartedUtc;
     public bool Exited, Killed;
-    public string Protection;
+    public string Protection, Priority;
     public readonly List<string> Tail = new();
 
     public string LogPath => Path.Combine(OutDir, Tag + ".log");
@@ -48,7 +48,7 @@ internal sealed class Worker
         File.WriteAllLines(PrevZonesPath, settled);
         File.WriteAllText(PrevCsvPath, "prefab,x,y,z,zx,zy\n" + string.Concat(rows.Select(r => r + "\n")));
         foreach (var f in new[] { ZonesPath, CsvPath }) if (File.Exists(f)) File.Delete(f);
-        if (File.Exists(LogPath)) File.Move(LogPath, LogPath + ".prev-" + DateTime.Now.ToString("HHmmss"), true);
+        if (File.Exists(LogPath)) Compat.MoveOver(LogPath, LogPath + ".prev-" + DateTime.Now.ToString("HHmmss"));
         PrevZones = settled.Count;
     }
 
@@ -68,7 +68,7 @@ internal sealed class Worker
         return w;
     }
 
-    public void Start(Install inst, string world, IDictionary<string, string> env, ProcessPriorityClass priority, IntPtr? affinity, Protection prot)
+    public void Start(Install inst, string world, IDictionary<string, string> env, bool lowest, ulong? affinity, Protection prot)
     {
         Port = Ports.FreePair();
         var psi = new ProcessStartInfo(inst.ServerExe)
@@ -77,16 +77,16 @@ internal sealed class Worker
             RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true,
         };
         string preloader = Path.Combine(BepRoot, "BepInEx", "core", "BepInEx.Preloader.dll");
-        string pw = "zg" + Guid.NewGuid().ToString("N")[..10];
-        foreach (var x in new[] { "-nographics", "-batchmode", "-name", "ore-extract-" + Index, "-port", Port.ToString(), "-world", world,
-                     "-password", pw, "-public", "0", "-savedir", SaveDir, "-logfile", Path.Combine(Dir, "server.log") })
-            psi.ArgumentList.Add(x);
+        string pw = "zg" + Guid.NewGuid().ToString("N").Substring(0, 10);
+        var args = new List<string> { "-nographics", "-batchmode", "-name", "ore-extract-" + Index, "-port", Port.ToString(), "-world", world,
+            "-password", pw, "-public", "0", "-savedir", SaveDir, "-logfile", Path.Combine(Dir, "server.log") };
+        // a doorstop already loaded into whatever started this tool (a game server running Munin) leaves
+        // DOORSTOP_INITIALIZED behind, and doorstop then skips the servers started here: start clean
+        foreach (var k in psi.Environment.Keys.Where(k => k.StartsWith("DOORSTOP_", StringComparison.OrdinalIgnoreCase)).ToList()) psi.Environment.Remove(k);
+        psi.Environment.Remove("LD_PRELOAD");
         psi.Environment["SteamAppId"] = "892970";
         if (Install.IsWindows)
-        {
-            psi.ArgumentList.Add("--doorstop-enabled"); psi.ArgumentList.Add("true");
-            psi.ArgumentList.Add("--doorstop-target-assembly"); psi.ArgumentList.Add(preloader);
-        }
+            args.AddRange(["--doorstop-enabled", "true", "--doorstop-target-assembly", preloader]);
         else
         {
             // doorstop and BepInEx from this tool's own copy: nothing is read from or written to a
@@ -97,18 +97,24 @@ internal sealed class Worker
             psi.Environment["LD_LIBRARY_PATH"] = Path.Combine(inst.ServerDir, "linux64") + ":" + dlibs;
             psi.Environment["LD_PRELOAD"] = Path.Combine(dlibs, "libdoorstop_x64.so");
         }
-        psi.Environment["OREEXTRACT_PARENT_PID"] = Environment.ProcessId.ToString();   // the server quits if this tool is gone (Linux)
+        // the server quits if the process running this is gone (Linux): the CLI, or the game server Munin runs in
+        psi.Environment["OREEXTRACT_PARENT_PID"] = Compat.ProcessId.ToString();
+        try { if (Compat.IsLinux) psi.Environment["OREEXTRACT_PARENT_COMM"] = File.ReadAllText("/proc/self/comm").Trim(); } catch { }
         psi.Environment["OREEXTRACT_OUT"] = OutDir;
         psi.Environment["OREEXTRACT_TAG"] = Tag;
         foreach (var kv in env) psi.Environment[kv.Key] = kv.Value;
+        psi.Arguments = Compat.Join(args);
         Proc = Process.Start(psi) ?? throw new ToolError("could not start the server");
+        Runner.Track(Proc);
         Proc.OutputDataReceived += (_, e) => { };
         Proc.ErrorDataReceived += (_, e) => { };
         Proc.BeginOutputReadLine(); Proc.BeginErrorReadLine();
         StartedUtc = DateTime.UtcNow;
         Protection = prot.Apply(Proc);
-        try { Proc.PriorityClass = priority; } catch { }
-        if (affinity.HasValue) try { Proc.ProcessorAffinity = affinity.Value; } catch (Exception e) { Install.Say($"p{Index}: could not set CPU affinity: {e.Message}"); }
+        try { Priority = ProcCtl.SetPriority(Proc, lowest); } catch (Exception e) { Priority = "priority NOT set: " + e.Message; }
+        if (affinity.HasValue)
+            try { if (!ProcCtl.SetAffinity(Proc, affinity.Value)) Install.Say($"p{Index}: could not set CPU affinity"); }
+            catch (Exception e) { Install.Say($"p{Index}: could not set CPU affinity: {e.Message}"); }
     }
 
     // new lines of the plugin's own log
@@ -130,19 +136,19 @@ internal sealed class Worker
                     {
                         string line = raw.TrimEnd('\r');
                         int sp = line.IndexOf(' ');
-                        string msg = sp >= 0 ? line[(sp + 1)..] : line;
+                        string msg = sp >= 0 ? line.Substring(sp + 1) : line;
                         Tail.Add(msg); if (Tail.Count > 20) Tail.RemoveAt(0);
-                        if (msg.StartsWith("@info ")) Info = Kv(msg[6..]);
-                        else if (msg.StartsWith("@progress ")) Progress = Kv(msg[10..]);
-                        else if (msg.StartsWith("@done ")) Done = Kv(msg[6..]);
-                        else if (msg.StartsWith("@error ")) Error = msg[7..];
+                        if (msg.StartsWith("@info ")) Info = Kv(msg.Substring(6));
+                        else if (msg.StartsWith("@progress ")) Progress = Kv(msg.Substring(10));
+                        else if (msg.StartsWith("@done ")) Done = Kv(msg.Substring(6));
+                        else if (msg.StartsWith("@error ")) Error = msg.Substring(7);
                     }
                 }
             }
         }
         if (Proc != null && !Exited)
         {
-            try { Proc.Refresh(); if (!Proc.HasExited) { PeakBytes = Math.Max(PeakBytes, Proc.WorkingSet64); CpuSeconds = Proc.TotalProcessorTime.TotalSeconds; } } catch { }
+            try { Proc.Refresh(); if (!Proc.HasExited) { PeakBytes = Math.Max(PeakBytes, Proc.WorkingSet64); CpuSeconds = ProcCtl.CpuSeconds(Proc); } } catch { }
             if (Proc.HasExited) Exited = true;
         }
     }
@@ -154,7 +160,7 @@ internal sealed class Worker
 
     public void Kill()
     {
-        try { if (Proc != null && !Proc.HasExited) { Proc.Kill(true); Killed = true; } } catch { }
+        try { if (Proc != null && !Proc.HasExited) { Proc.Kill(); Killed = true; } } catch { }
     }
 
     // k=v pairs, values optionally in double quotes
@@ -167,11 +173,11 @@ internal sealed class Worker
             while (i < s.Length && s[i] == ' ') i++;
             int eq = s.IndexOf('=', i);
             if (eq < 0) break;
-            string k = s[i..eq];
+            string k = s.Substring(i, eq - i);
             i = eq + 1;
             string v;
-            if (i < s.Length && s[i] == '"') { int q = s.IndexOf('"', i + 1); if (q < 0) q = s.Length; v = s[(i + 1)..q]; i = q + 1; }
-            else { int sp = s.IndexOf(' ', i); if (sp < 0) sp = s.Length; v = s[i..sp]; i = sp; }
+            if (i < s.Length && s[i] == '"') { int q = s.IndexOf('"', i + 1); if (q < 0) q = s.Length; v = s.Substring(i + 1, q - i - 1); i = q + 1; }
+            else { int sp = s.IndexOf(' ', i); if (sp < 0) sp = s.Length; v = s.Substring(i, sp - i); i = sp; }
             d[k] = v;
         }
         return d;
@@ -185,7 +191,7 @@ internal sealed class Worker
     }
 }
 
-internal static class Probe
+public static class Probe
 {
     // the game's location version and build, read from a server started just long enough for its
     // ZoneSystem to wake (cached per server build)
@@ -198,35 +204,63 @@ internal static class Probe
         if (File.Exists(cache))
         {
             var c = Worker.Kv(File.ReadAllText(cache).Trim());
-            if (c.TryGetValue("locver", out var lv) && int.TryParse(lv, out int v)) return (v, c.GetValueOrDefault("build", "?"));
+            if (c.TryGetValue("locver", out var lv) && int.TryParse(lv, out int v)) return (v, c.Get("build", "?"));
         }
         Install.Say("starting the server once to read the game's location version");
         string runDir = Path.Combine(inst.WorkDir, "runs", "probe-" + DateTime.Now.ToString("yyyyMMdd-HHmmss"));
         var w = Worker.Prepare(runDir, 0, inst, Install.PluginBytes());
         using var prot = new Protection(8L << 30);
-        w.Start(inst, "oreextract_probe", new Dictionary<string, string> { ["OREEXTRACT_MODE"] = "probe" }, ProcessPriorityClass.BelowNormal, null, prot);
+        w.Start(inst, "oreextract_probe", new Dictionary<string, string> { ["OREEXTRACT_MODE"] = "probe" }, false, null, prot);
         var sw = Stopwatch.StartNew();
-        while (w.Info == null && !w.Exited && sw.Elapsed.TotalSeconds < 300) { Thread.Sleep(500); w.Poll(); }
+        while (w.Info == null && !w.Exited && sw.Elapsed.TotalSeconds < 300 && Runner.StopReason == null) { Thread.Sleep(500); w.Poll(); }
         w.Poll();
         w.Kill();
         try { w.Proc.WaitForExit(10000); } catch { }
         if (w.Info == null || !w.Info.TryGetValue("locver", out var s) || !int.TryParse(s, out int ver))
             throw new ToolError("the probe server didn't report the location version; its log: " + Path.Combine(w.Dir, "server.log"));
-        string build = w.Info.GetValueOrDefault("build", "?");
+        string build = w.Info.Get("build", "?");
         File.WriteAllText(cache, $"locver={ver} build={build}\n");
         try { Directory.Delete(runDir, true); } catch { }
         return (ver, build);
     }
 
-    private static string Hash(string s) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(s)))[..8];
+    private static string Hash(string s) => Compat.Sha256Hex(Encoding.UTF8.GetBytes(s)).Substring(0, 8);
 }
 
-internal static class Runner
+public static class Runner
 {
     // measured (TASK-4.2): a process keeps about 2.0-2.2 threads busy when it has the CPU to itself
     // and about 1.6 when the CPU is 80% busy, so 80% of the threads
     // divided by 1.6 lands near 80% busy
     private const double ThreadsPerProcess = 1.6;
+
+    // Munin runs this in its own process (TASK-4.5): then nothing here may change the process's
+    // working directory or take over Ctrl+C and process exit
+    public static bool Hosted;
+
+    // asking a run to stop (Munin stopping, the CLI's parent gone): its servers are killed now and the
+    // run ends with this reason; what it wrote stays for a resume
+    private static volatile string stopReason;
+    public static string StopReason => stopReason;
+    private static readonly List<Process> children = new();
+    private static readonly ManualResetEvent stopSignal = new(false);   // wakes the watch at once
+
+    // how often the watch looks at its servers (their log, memory, whether they exited): every second
+    // for the tool; Munin, which runs this inside the game server's process, can look less often
+    public static int PollMs = 1000;
+
+    internal static void Track(Process p) { lock (children) children.Add(p); }
+
+    public static void Stop(string why)
+    {
+        stopReason = why;
+        stopSignal.Set();
+        lock (children)
+        {
+            foreach (var p in children) try { if (!p.HasExited) p.Kill(); } catch { }
+            children.Clear();
+        }
+    }
 
     public static int Run(Args a)
     {
@@ -236,16 +270,20 @@ internal static class Runner
         string runFile = Path.Combine(resumeDir, "run.txt");
         if (!File.Exists(runFile)) throw new ToolError($"{resumeDir} is not a ore-extract run folder (no run.txt)");
         var lines = File.ReadAllLines(runFile);
-        Environment.CurrentDirectory = lines[0];
+        string baseDir = lines[0];   // relative paths in the options are from there
         int n = int.Parse(lines[1]);
         var orig = new Args(lines.Skip(2).ToArray());
         if (orig.Get("--work-dir") == null && a.Get("--work-dir") != null) throw new ToolError("give --work-dir only if the stopped run had it");
         Install.Say($"resuming {resumeDir}: {n} process(es), options: {string.Join(" ", orig.Raw)}");
-        return Run(orig, resumeDir, n);
+        return Run(orig, resumeDir, n, baseDir);
     }
 
-    private static int Run(Args a, string resumeDir, int resumeN)
+    private static int Run(Args a, string resumeDir, int resumeN, string baseDir = null)
     {
+        stopReason = null;
+        stopSignal.Reset();
+        baseDir ??= Environment.CurrentDirectory;
+        string Full(string p) => p == null ? null : Path.GetFullPath(Path.Combine(baseDir, p));
         string savePath = a.Get("--save"), seed = a.Get("--seed");
         if ((savePath == null) == (seed == null)) throw new ToolError("give either --save PATH or --seed NAME");
         if (seed != null && seed.Length == 0) throw new ToolError("--seed needs a seed name");
@@ -256,10 +294,10 @@ internal static class Runner
         bool guard = !a.Has("--no-guard");
         var prefabs = a.Get("--prefabs");
 
-        var inst = Install.From(a);
+        var inst = Install.From(a, baseDir);
         inst.EnsureAll(update: a.Has("--update") && resumeDir == null);
 
-        SaveInput save = savePath != null ? SaveInput.Find(resumeDir != null ? Path.Combine(resumeDir, "input", File.ReadAllText(Path.Combine(resumeDir, "input.txt")).Trim()) : savePath) : null;
+        SaveInput save = savePath != null ? SaveInput.Find(resumeDir != null ? Path.Combine(resumeDir, "input", File.ReadAllText(Path.Combine(resumeDir, "input.txt")).Trim()) : Full(savePath)) : null;
         SaveInput.Meta meta = save?.ReadMeta();
         var saveLoc = save?.ReadLocationVersion();
         string world = save?.WorldName ?? "oreextract_seed";
@@ -294,13 +332,14 @@ internal static class Runner
                 (n > 1 ? $"; try --processes {Math.Max(1, byMem)}" : ""));
 
         int cores = a.Int("--cores", slow ? 1 : 0);
-        IntPtr? affinity = cores > 0 ? Cpu.AffinityMask(cores) : null;
-        var priority = slow ? ProcessPriorityClass.Idle : ProcessPriorityClass.BelowNormal;
+        ulong? affinity = cores > 0 ? Cpu.AffinityMask(cores) : null;
 
         // ---- prepare and start ----
-        string runDir = resumeDir ?? Path.Combine(inst.WorkDir, "runs", DateTime.Now.ToString("yyyyMMdd-HHmmss"));
+        string runDir = resumeDir ?? (a.Get("--run-dir") is string rd ? Full(rd) : Path.Combine(inst.WorkDir, "runs", DateTime.Now.ToString("yyyyMMdd-HHmmss")));
         if (resumeDir == null)
         {
+            if (File.Exists(Path.Combine(runDir, "run.txt"))) throw new ToolError($"{runDir} already holds a run; continue it with --resume \"{runDir}\", or delete it");
+            if (Directory.Exists(runDir) && Directory.EnumerateFileSystemEntries(runDir).Any()) throw new ToolError($"{runDir} isn't empty; give an empty or new folder to --run-dir");
             Directory.CreateDirectory(runDir);
             // the run's own copy of the input: every process, and a resume, copies from it, so a
             // live save moving on meanwhile doesn't matter
@@ -312,8 +351,9 @@ internal static class Runner
                 File.WriteAllText(Path.Combine(runDir, "input.txt"), rel);
                 save = SaveInput.Find(Path.Combine(inDir, rel));
             }
-            File.WriteAllLines(Path.Combine(runDir, "run.txt"), new[] { Environment.CurrentDirectory, n.ToString() }.Concat(a.Raw));
+            File.WriteAllLines(Path.Combine(runDir, "run.txt"), new[] { baseDir, n.ToString() }.Concat(a.Raw));
         }
+        Status.Set(("run_dir", runDir), ("world", world), ("seed", seedName), ("game_version", game.build), ("processes", n));
         var plugin = Install.PluginBytes();
         var env = new Dictionary<string, string>
         {
@@ -334,8 +374,11 @@ internal static class Runner
         using var prot = new Protection(Math.Max(perProc * 2, 6L << 30));
         void KillAll() { foreach (var w in workers) w.Kill(); }
         ConsoleCancelEventHandler onCancel = (_, e) => { Install.Say("stopping"); KillAll(); };
-        Console.CancelKeyPress += onCancel;
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => KillAll();
+        if (!Hosted)
+        {
+            Console.CancelKeyPress += onCancel;
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => KillAll();
+        }
         var wall = Stopwatch.StartNew();
         try
         {
@@ -351,18 +394,20 @@ internal static class Runner
                     Install.Say($"p{k}: {w.PrevZones} zones already written");
                 }
                 if (save != null) save.CopyTo(Path.Combine(w.SaveDir, "worlds_local"));
-                w.Start(inst, world, e, priority, affinity, prot);
+                if (stopReason != null) throw new ToolError(stopReason + Resume(runDir));
+                w.Start(inst, world, e, slow, affinity, prot);
                 workers.Add(w);
-                Install.Say($"p{k}: started (pid {w.Proc.Id}, port {w.Port}, {w.Protection}{(slow ? ", lowest priority" : "")}{(cores > 0 ? $", {cores} core(s)" : "")})");
+                Install.Say($"p{k}: started (pid {w.Proc.Id}, port {w.Port}, {w.Protection}, {w.Priority}{(cores > 0 ? $", {cores} core(s)" : "")})");
             }
-            string stopReason = Watch(workers, guard, margin, seedName, save != null ? saveLoc?.generatedZones : null);
-            if (stopReason != null)
+            Status.Set(("state", "loading"));
+            string why = Watch(workers, guard, margin, seedName, save != null ? saveLoc?.generatedZones : null);
+            if (why != null)
             {
                 KillAll();
-                throw new ToolError(stopReason + Resume(runDir));
+                throw new ToolError(why + Resume(runDir));
             }
         }
-        finally { Console.CancelKeyPress -= onCancel; }
+        finally { if (!Hosted) Console.CancelKeyPress -= onCancel; }
 
         // ---- results ----
         var bad = workers.Where(w => w.Done == null).ToList();
@@ -370,11 +415,11 @@ internal static class Runner
         {
             var sb = new StringBuilder($"{bad.Count} of {n} process(es) didn't finish:");
             foreach (var w in bad)
-                sb.Append($"\n  p{w.Index}: {(w.Error ?? (w.Killed ? "stopped" : "exited without a result"))}; server log {Path.Combine(w.Dir, "server.log")}\n    last lines: " + string.Join("\n    ", w.Tail.TakeLast(5)));
+                sb.Append($"\n  p{w.Index}: {(w.Error ?? (w.Killed ? "stopped" : "exited without a result"))}; server log {Path.Combine(w.Dir, "server.log")}\n    last lines: " + string.Join("\n    ", w.Tail.Last(5)));
             sb.Append(Resume(runDir));
             throw new ToolError(sb.ToString());
         }
-        string outPath = Path.GetFullPath(a.Get("--out") ?? Path.Combine(Environment.CurrentDirectory, world + "-deposits.csv"));
+        string outPath = Full(a.Get("--out") ?? world + "-deposits.csv");
         var rows = new List<string>();
         foreach (var w in workers)
             foreach (var f in new[] { w.PrevCsvPath, w.CsvPath })
@@ -382,11 +427,11 @@ internal static class Runner
         rows.Sort(string.CompareOrdinal);
         int zones = workers.Sum(w => int.Parse(w.Done["zones"]) + w.PrevZones), failed = workers.Sum(w => int.Parse(w.Done["failed"]));
         var info = workers[0].Info ?? new Dictionary<string, string>();
-        bool replanned = workers.Any(w => w.Info?.GetValueOrDefault("replanned") == "1");
+        bool replanned = workers.Any(w => w.Info?.Get("replanned") == "1");
         long peakEach = workers.Max(w => w.PeakBytes);
         var hdr = new StringBuilder();
         void H(string k, object v) => hdr.Append("# ").Append(k).Append(": ").Append(v).Append('\n');
-        H("tool", "ore-extract " + Program.ToolVersion);
+        H("tool", "ore-extract " + Install.ToolVersion);
         H("input", save != null ? $"world save copy (save {save.SaveNumber})" : "seed only");
         H("world", world);
         H("seed", seedName);
@@ -394,7 +439,7 @@ internal static class Runner
         H("location_version_game", game.locationVersion);
         if (saveLoc.HasValue) H("location_version_save", saveLoc.Value.locationVersion);
         H("locations_replanned_on_load", replanned ? "yes" : "no");
-        H("game_version", info.GetValueOrDefault("build", game.build));
+        H("game_version", info.Get("build", game.build));
         H("server_build", inst.BuildId() ?? "?");
         H("prefabs", prefabs ?? "rock4_copper,MineRock_Tin,silvervein,MineRock_Obsidian,mudpile_beacon");
         H("zones_generated", zones);
@@ -403,10 +448,13 @@ internal static class Runner
         if (resumeDir != null) H("resumed", "yes (seconds: the last attempt only)");
         H("seconds", ((int)wall.Elapsed.TotalSeconds).ToString(CultureInfo.InvariantCulture));
         H("created_utc", DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"));
-        File.WriteAllText(outPath, hdr + "prefab,x,y,z,zx,zy\n" + string.Join("\n", rows) + (rows.Count > 0 ? "\n" : ""));
+        // written beside it and moved into place, so a program watching for the file never reads half of it
+        string outTmp = outPath + ".tmp";
+        File.WriteAllText(outTmp, hdr + "prefab,x,y,z,zx,zy\n" + string.Join("\n", rows) + (rows.Count > 0 ? "\n" : ""));
+        Compat.MoveOver(outTmp, outPath);
         if (locOut != null)
         {
-            locOut = Path.GetFullPath(locOut);
+            locOut = Full(locOut);
             File.Copy(Path.Combine(workers[0].OutDir, workers[0].Tag + "-locations.csv"), locOut, true);
             Install.Say($"location plan as loaded -> {locOut}");
         }
@@ -415,6 +463,8 @@ internal static class Runner
         // CPU threads a process kept busy on average, over its life (last sample before it exited)
         var thr = workers.Select(w => w.CpuSeconds / Math.Max(1, (DateTime.UtcNow - w.StartedUtc).TotalSeconds)).ToList();
         Install.Say($"CPU: {thr.Average():F1} threads busy per process on average ({string.Join(", ", thr.Select(t => t.ToString("F1", CultureInfo.InvariantCulture)))}), {thr.Sum():F1} of {Cpu.Logical} in all");
+        Status.Set(("state", "done"), ("out", outPath), ("zones_done", zones), ("zones_total", zones), ("zones_failed", failed), ("deposits", rows.Count),
+            ("seconds", (int)wall.Elapsed.TotalSeconds), ("seconds_left", null), ("rate", null));
         if (!a.Has("--keep")) { try { Directory.Delete(runDir, true); } catch { } }
         else Install.Say($"working files kept in {runDir}");
         return failed > 0 ? 3 : 0;
@@ -428,13 +478,14 @@ internal static class Runner
         var checkedInfo = new HashSet<int>();
         while (true)
         {
-            Thread.Sleep(1000);
+            stopSignal.WaitOne(PollMs);
+            if (stopReason != null) return stopReason;
             foreach (var w in workers) w.Poll();
             // the server falls back to creating a new world with a random seed if it doesn't find
             // the one named: make sure each loaded the world it was given
             foreach (var w in workers.Where(w => w.Info != null && checkedInfo.Add(w.Index)))
             {
-                string got = w.Info.GetValueOrDefault("seedname");
+                string got = w.Info.Get("seedname");
                 if (got != seedName) return $"p{w.Index} loaded a world with seed '{got}', not '{seedName}': the world copy wasn't found";
                 if (generatedZones.HasValue && w.Info.TryGetValue("generated", out var gz) && int.TryParse(gz, out int g) && g != generatedZones.Value)
                     return $"p{w.Index} loaded a world with {g} generated zones, but the save has {generatedZones.Value}: the world copy wasn't the one loaded";
@@ -443,10 +494,10 @@ internal static class Runner
             {
                 announcedInfo = true;
                 var i = workers[0].Info;
-                Install.Say($"world loaded: {i.GetValueOrDefault("generated")} zones already generated{(i.GetValueOrDefault("replanned") == "1" ? ", locations planned again on load" : "")}{(i.GetValueOrDefault("fromseed") == "1" ? ", created from the seed" : "")}");
+                Install.Say($"world loaded: {i.Get("generated")} zones already generated{(i.Get("replanned") == "1" ? ", locations planned again on load" : "")}{(i.Get("fromseed") == "1" ? ", created from the seed" : "")}");
             }
             // a process that never reports (BepInEx or the plugin didn't load) would idle forever
-            var silent = workers.FirstOrDefault(w => w.Info == null && !w.Exited && (DateTime.Now - w.Proc.StartTime).TotalMinutes > 10);
+            var silent = workers.FirstOrDefault(w => w.Info == null && !w.Exited && (DateTime.UtcNow - w.StartedUtc).TotalMinutes > 10);
             if (silent != null) return $"p{silent.Index} hasn't reported in 10 minutes: BepInEx or the plugin didn't load (a game version this build doesn't support?); server log: {Path.Combine(silent.Dir, "server.log")}";
             var err = workers.FirstOrDefault(w => w.Error != null);
             if (err != null) return $"p{err.Index} failed: {err.Error}";
@@ -458,7 +509,7 @@ internal static class Runner
             }
             if (workers.All(w => w.Exited)) { foreach (var w in workers) w.Poll(); return null; }
             var dead = workers.FirstOrDefault(w => w.Exited && w.Done == null);
-            if (dead != null) { Thread.Sleep(1500); dead.Poll(); if (dead.Done == null) return $"p{dead.Index} exited without a result (exit code {Safe(() => dead.Proc.ExitCode)}); last lines:\n  " + string.Join("\n  ", dead.Tail.TakeLast(5)) + $"\n  server log: {Path.Combine(dead.Dir, "server.log")}"; }
+            if (dead != null) { Thread.Sleep(1500); dead.Poll(); if (dead.Done == null) return $"p{dead.Index} exited without a result (exit code {Safe(() => dead.Proc.ExitCode)}); last lines:\n  " + string.Join("\n  ", dead.Tail.Last(5)) + $"\n  server log: {Path.Combine(dead.Dir, "server.log")}"; }
             if (report.Elapsed.TotalSeconds >= 30)
             {
                 report.Restart();
@@ -477,6 +528,9 @@ internal static class Runner
                 long mem = workers.Sum(w => w.CurrentBytes());
                 if (total > 0)
                 {
+                    int done0 = workers.Sum(w => w.PrevZones);
+                    Status.Set(("state", "running"), ("zones_done", done + done0), ("zones_total", total + done0), ("rate", rate.ToString("F0", CultureInfo.InvariantCulture)),
+                        ("seconds_left", rate > 0 ? (int)((total - done) / rate * 60) : null), ("memory_gb", (mem / (double)Mem.GB).ToString("F1", CultureInfo.InvariantCulture)));
                     string eta = rate > 0 ? $", about {Fmt(TimeSpan.FromMinutes((total - done) / rate))} left" : "";
                     Install.Say($"{done}/{total} zones ({100.0 * done / total:F0}%), {rate:F0} zones/min{eta}, memory {mem / Mem.GB:F1} GB");
                 }

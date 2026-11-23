@@ -42,6 +42,15 @@ own copy of the save, skipping the zones already written. Deposits next to the s
 differ slightly from an uninterrupted run (99.8% the same in a test), the same kind of difference
 as between two parallel runs.
 
+### Run by another program
+
+Munin doesn't need the tool for `predict_ore = server`: it runs the same code (`core/`) in its
+own process. For another program that runs the tool, three options help: `--run-dir DIR` puts the run in a fixed folder (so it can be
+found and resumed after a restart), `--status FILE` keeps a small `key=value` file saying how the
+run is going (state, zones done and in all, zones per minute, seconds left, the reason for a
+failure), and `--parent-pid PID` stops the run (it can be resumed) when that process is gone. The
+output file is written beside its name and moved into place, so a watcher never reads half of it.
+
 ### The input
 
 - **A copy of the world save (recommended).** Give the world's folder, `worlds_local/<world>/`
@@ -136,9 +145,12 @@ reports (the release workflow passes the release stamp); without it, `0.0.0-loca
 Needs the .NET 8 SDK and the game's and BepInEx's assemblies in `../libs` (Munin's `build.sh` puts
 them there), and zip or PowerShell for the Windows bundle. The code:
 - `plugin/`: the OreExtract BepInEx plugin that drives the generation inside the server; built
-  first and embedded in the tool.
-- `cli/`: the `ore-extract` command-line tool that installs what it needs, starts the servers,
-  watches them and joins their output.
+  first and embedded in `core`.
+- `core/`: the part that copies the save, starts the servers, watches them, guards memory and
+  joins their output; built for .NET 8 (the tool) and .NET Framework 4.8 (Munin, which merges it
+  into `MuninMap.dll` and runs it in-process for `predict_ore = server`).
+- `cli/`: the `ore-extract` command-line tool: options, and finding or downloading the server and
+  BepInEx.
 
 The accuracy checks (`compare.py`, `compare_locations.py`) and the spike's test-image scripts are
 in `patches-tools/ore-extract/`.
