@@ -9,8 +9,9 @@
   2. Takes the newest of the image's daily AUTOBACKUP folders, which are known to hold a
      committed save, never the live world folder (a copy taken mid-save can be broken), and
      checks that its _main.N.ok marker matches its _main.N.db2.
-  3. Copies the live Munin settings, with discord_webhook blanked so the test server never
-     posts to the real Discord, hidden_players blanked so test characters show on the map, and
+  3. Copies the live Munin settings, with discord_webhook, telegram_bot_token and telegram_chat_id
+     blanked so the test server never posts to the real Discord or Telegram, hidden_players
+     blanked so test characters show on the map, and
      data_path pointed at the test server's Docker volume.
   4. Copies Munin's own data for the world (the top-level files of its world folder: stats,
      activity, trails, events, bases, claims, build history, caches), so builders, players and
@@ -119,6 +120,8 @@ Move-Item $staged $target
 $bepinex = Join-Path $data "config\bepinex"
 New-Item -ItemType Directory -Force $bepinex | Out-Null
 $cfg = (Get-Content (Join-Path $incoming "muninmap.cfg")) -replace '^(\s*discord_webhook\s*=).*$', '$1 ' `
+  -replace '^(\s*telegram_bot_token\s*=).*$', '$1 ' `
+  -replace '^(\s*telegram_chat_id\s*=).*$', '$1 ' `
   -replace '^(\s*hidden_players\s*=).*$', '$1 ' `
   -replace '^(\s*data_path\s*=).*$', '$1 /home/valheim/munin-data'   # the Docker volume in compose.yml
 Set-Content -Path (Join-Path $bepinex "com.cocopuff2u.muninmap.cfg") -Value $cfg
