@@ -229,6 +229,7 @@ namespace MuninMap
             Structures.LoadCache(worldDataPath);
             Ruins.LoadCache(worldDataPath);
             Vegetation.LoadCache(worldDataPath);
+            Patches.PredictedOre.Load(worldDataPath);   // patches: TASK-4
             TileStore.Init(worldDataPath);
             Models.ModelStore.Init(mapDataPath);
 

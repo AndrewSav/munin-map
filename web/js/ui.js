@@ -12,6 +12,7 @@ import { BiomeHover } from './biomehover.js';
 import { buildSettings } from './patches-settings.js';   // patches: TASK-1
 import { adminClaims } from './claims.js';   // patches: TASK-20
 import { seedLine } from './seed.js';   // patches: TASK-15
+import { oreRows, predictedOreLine } from './ore-layer.js';   // patches: TASK-4
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -198,6 +199,7 @@ export class Sidebar {
     } else {
       world.append(row(TREE_SVG, 'Trees & rocks', 'Every tree, bush and boulder', S.veg, (v) => { if (v) L.veg.addTo(this.app.map); else L.veg.remove(); S.set('veg', v); }));
     }
+    world.append(...oreRows(this.app, groupRow, ORE_SVG, world));   // patches: TASK-4 (the fork's ore layer: real and predicted ore)
 
     // ---- people and places
     const people = card('People & places');
@@ -699,6 +701,7 @@ export class Sidebar {
       <dt>Munin Map</dt><dd>${escape(this.app.config?.version || '')}${s.latestVersion ? (newerVersion(s.latestVersion, this.app.config?.version || '') ? ` · <a href="${escape(s.latestUrl || '')}" target="_blank" rel="noopener">${escape(s.latestVersion)} is out</a>` : ' · up to date') : ''}</dd>
     </dl>`));
     seedLine(p.lastElementChild, this.app.config);   // patches: TASK-15 (show_seed: the world's seed)
+    predictedOreLine(p.lastElementChild);   // patches: TASK-4 (predicted ore)
   }
 
   // The raids the world can have (the server sends the game's rules for each): can come now, not

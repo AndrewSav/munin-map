@@ -188,15 +188,41 @@ How it differs from upstream:
   the port shown is read from the game's `-port` (the Discord post shows `:1`), hidden players
   are never named, and chat can be relayed (Discord gets no chat).
 
-## TASK-4.3: ore-extract with each release
+## TASK-4: Predicted ore deposits
 
-Each release of this fork carries ore-extract next to `MuninMap.zip`: a standalone tool for admins
-(Windows x64 and Linux x64, one self-contained file each) that generates a copy of a world headless,
-with the game's own rules, and writes out where its ore deposits are, including in zones nobody has
-visited yet. Munin showing that output as predicted ore comes with TASK-4.4. How to run it:
-`ore-extract/README.md`, also inside each download.
+With `reveal_all = true`, the map can show where ore deposits will be in zones nobody has visited
+yet, to viewers who have turned Spoilers on. The game places ore from the world seed and its own
+rules when a zone is first generated, so the deposits can be worked out in advance. One new
+setting, `predict_ore`, picks how (built in parts, TASK-4.3 to 4.6; this entry describes it as it
+stands):
+
+- **`off`** (default): nothing changes.
+- **`file`:** the admin makes an extract with **ore-extract** and copies it into the world's Munin
+  data folder as `predicted-ore.csv`; Munin picks it up within 30 seconds. An extract made for
+  another world is refused; one made for another game version is shown with a warning in Server
+  details and a note on the page that viewers can dismiss. How to make one: docs/ADVANCED.md,
+  "Predicted ore".
+- **ore-extract**, a standalone tool for admins that ships with each release next to
+  `MuninMap.zip` (Windows x64 and Linux x64, one self-contained file each). It generates a copy of
+  a world headless, with the game's own rules, and writes out where its ore deposits are. How to
+  run it: `ore-extract/README.md`, also inside each download.
+
+On the map, real and predicted ore are one layer, driven by the Ore row:
+- **Style**, in the Ore row's checklist, remembered per browser: *Classic* (the default, upstream's
+  small filled dots; predicted ones hollow) or *Shapes* (a shape per ore, filled for real and hollow
+  for predicted, easy to see zoomed out; ore inside Sunken Crypts is shown in Classic only).
+- **Predicted ore**, in the same checklist, shows or hides the predictions; the per-ore checkboxes
+  and the Ore switch apply to both.
+- A generated zone shows only its real deposits: its predictions go within 30 seconds.
+- Server details get a **Predicted ore** line: how many, the version they were made for, or why
+  there are none.
 
 How it differs from upstream:
-- Upstream has no such tool. The release assets `ore-extract-win-x64.zip` and
-  `ore-extract-linux-x64.tar.gz` are new, and `SHA256SUMS` lists them with `MuninMap.zip`.
-- Its code is in `ore-extract/`, a folder upstream doesn't have; the Munin plugin doesn't change.
+- Upstream shows no predicted ore and has no such tool. New setting `predict_ore`; new endpoints
+  `data/ore.json` and `data/predicted-ore.json`.
+- On the WebGL map the fork draws the ore itself (upstream's GPU ore dots are switched off while it
+  does), in upstream's look by default. The 3D view and the non-WebGL map keep upstream's ore and
+  show no predictions.
+- The release assets `ore-extract-win-x64.zip` and `ore-extract-linux-x64.tar.gz` are new, and
+  `SHA256SUMS` lists them with `MuninMap.zip`. The tool's code is in `ore-extract/`, a folder
+  upstream doesn't have.

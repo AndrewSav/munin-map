@@ -4,7 +4,7 @@ title: In-place ore prediction (predict_ore = in-place)
 status: To Do
 assignee: []
 created_date: '2026-11-22T22:22:28Z'
-updated_date: '2026-11-22T22:34:08Z'
+updated_date: '2026-11-22T23:07:12Z'
 labels:
   - plugin
   - web
@@ -31,7 +31,7 @@ Ref: TASK-4 (approach in its notes), doc-2 (placement rules, Ghost mode, how val
 - [ ] #3 The game server shows no noticeable effect while it works (fps and longest frames against a settled baseline on the test server), and the time to cover a whole world is recorded
 - [ ] #4 It follows the running game's own data, so it needs no re-run after a game update beyond working out zones again
 - [ ] #5 docs/ADVANCED.md describes it, says why it is less exact than an extract (blocking by earlier objects, terrain, randomly rotated locations) with the measured accuracy, and completes the comparison of the methods
-- [ ] #6 PATCHES.md has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [ ] #6 PATCHES.md's single TASK-4 entry, which presents predicted ore as one feature with its modes, covers the in-place mode: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
 
 ## Definition of Done

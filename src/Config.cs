@@ -298,6 +298,7 @@ namespace MuninMap
             Patches.Access.Bind(config);   // patches: TASK-20
             Patches.Seed.Bind(config);   // patches: TASK-15
             Patches.Telegram.Bind(config);   // patches: TASK-18
+            Patches.PredictedOre.Bind(config);   // patches: TASK-4
 
             string hidden = config.Bind("User", "hidden_players", "",
                 "Character names, comma separated, never shown on the map, in the stats or in the event feed (an admin, an alt).").Value;
@@ -444,6 +445,7 @@ namespace MuninMap
             config["show_last_seen_position"] = SHOW_LAST_SEEN_POSITION;
             Patches.Access.AddTo(config);   // patches: TASK-20
             Patches.Seed.AddTo(config);   // patches: TASK-15
+            Patches.PredictedOre.AddTo(config);   // patches: TASK-4
             config["reveal_all"] = REVEAL_ALL;
             config["models"] = EXPORT_MODELS;
 

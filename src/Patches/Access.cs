@@ -76,6 +76,8 @@ namespace MuninMap.Patches
         public static bool Handle(HttpRequestEventArgs e, string path, bool post)
         {
             var req = e.Request;
+            if (PredictedOre.Handle(e, path, post)) return true;   // TASK-4: data/predicted-ore.json
+            if (OreLayer.Handle(e, path, post)) return true;   // TASK-4: data/ore.json
             switch (path)
             {
                 case "/data/claim.json":

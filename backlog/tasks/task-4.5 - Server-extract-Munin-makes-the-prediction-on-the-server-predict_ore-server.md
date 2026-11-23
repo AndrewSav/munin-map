@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-11-22T22:22:25Z'
-updated_date: '2026-11-22T22:34:08Z'
+updated_date: '2026-11-22T23:07:11Z'
 labels:
   - plugin
   - web
@@ -38,7 +38,7 @@ Ref: TASK-4 (approach in its notes), TASK-4.2 (slow mode, resume, memory guard, 
 - [ ] #7 The extract never outlives the server: it stops when the server stops or Munin is unloaded
 - [ ] #8 The game server's fps and longest frames during an extract, against a settled baseline, are measured on the test server and show no noticeable effect
 - [ ] #9 docs/ADVANCED.md describes the server extract (what it does, its time and memory, where to see progress) and adds it to the comparison of the methods
-- [ ] #10 PATCHES.md has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [ ] #10 PATCHES.md's single TASK-4 entry, which presents predicted ore as one feature with its modes, covers the server mode: what changes for players and admins, and how it differs from upstream
 <!-- AC:END -->
 
 ## Definition of Done

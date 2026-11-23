@@ -93,6 +93,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | User | `require_auth` | false | only claimed players may pin, ping or edit bases from the page, or ask for a sweep by API; see [Player access](#player-access) |
 | Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
 | Server | `show_seed` | false | show the world's seed in the stats panel's Server details, for seed-map websites. The seed reveals the whole world there (a spoiler); off, it is not sent at all. Players on the server can get it anyway: the game's `printseeds` console command (F5, with the `-console` launch option) prints it |
+| Server | `predict_ore` | off | show predicted ore deposits in zones nobody has visited yet (needs `reveal_all`). `off`: none. `file`: from an extract made with ore-extract; see [Predicted ore](#predicted-ore) |
 
 ## Your own markers
 
@@ -124,6 +125,7 @@ update.
 | `<world>/events.jsonl` | the events log |
 | `<world>/bases.json` | base names you set |
 | `<world>/markers.json` | your own markers (you make this one) |
+| `<world>/predicted-ore.csv` | predicted ore deposits, with `predict_ore = file` (you copy this one in) |
 | `<world>/*-cache.*` | caches so a restart serves the map at once |
 | `models/` | 3D models, textures and meshes from the game files |
 | `runestones.txt` | which locations hold runestones and Vegvisirs |
@@ -259,6 +261,8 @@ with a heightmap. Fog applies: nothing unexplored leaves the server. See
 | `/map`, `/map.jpg` | the whole world as one image |
 | `POST /api/sweep` | walk the world now (with `enable_sweep_api = false`, only with the token) |
 | `POST /api/pin`, `POST /api/unpin`, `POST /api/base` | add or remove a pin, rename or hide a base (with `require_auth`, a claimed key) |
+| `/data/ore.json` | ore deposits as points `[kind, x, z, ...]`, for the page's ore layer (explored ground only, unless the viewer has the spoiler view) |
+| `/data/predicted-ore.json` | predicted ore deposits and their status ([Predicted ore](#predicted-ore)) |
 | `/data/claim.json?client=`, `/data/claimable.json`, `POST /api/claim` | this browser's claim, the players it may claim, claiming one ([Player access](#player-access)) |
 
 Need the token (`X-Announce-Token: <secret>`, from `announce.token` next to
@@ -353,6 +357,67 @@ release.
 then `POST /api/reload` with the token: every open browser refreshes, no game
 restart needed. (A copy of the page is also built into the DLL, used when the
 `web/` folder is missing.)
+
+## Predicted ore<!-- patches: TASK-4 -->
+
+The game places ore when a zone is first generated, from the world's seed and its own rules, so
+where it will go can be worked out before anyone gets there. With `reveal_all = true` and
+`predict_ore` set, the map shows those deposits in zones nobody has visited yet, to viewers who
+have turned **Spoilers** on. A viewer with Spoilers off gets none: predictions are only ever on
+unexplored ground.
+
+**On the map.** The Ore row in the left bar draws real and predicted ore together. Under its arrow,
+below the per-ore checklist:
+- **Style:** *Classic* (the default) draws ore as small filled dots in each ore's colour, as
+  before; predicted ones are the same dot, hollow. *Shapes* gives each surface ore a shape (copper circle,
+  tin square, silver diamond, obsidian triangle, muddy scrap pentagon), filled for real deposits
+  and hollow for predicted ones, big enough to see with the whole world in view. Each browser
+  remembers its choice.
+- **Predicted ore:** show the predictions or not.
+
+Predictions cover ore on the surface only. The muddy scrap piles inside Sunken Crypts are left out:
+which rooms a crypt gets, and so how many piles, depends on the way the game happens to turn the crypt
+when it is built, which the seed doesn't decide.
+
+Real crypt scrap shows in the classic style only, as a clump of dots (often 15-20) at the crypt: the
+interior is built high above the crypt, so a player inside moves among them on the map, and they go
+as they are mined (at the next sweep). The shapes leave it out: they are for spotting ore on the
+ground, crypt scrap is never predicted and isn't on the ground, and a crypt is found by its marker.
+
+The per-ore checkboxes and the Ore switch hide real and predicted ore alike. When a zone is
+generated, its predictions go and its real deposits take their place (within 30 seconds). The
+stats panel's Server details get a **Predicted ore** line: how many deposits, the game version
+they were made for, or why there are none. The 3D view draws real ore only. The map without WebGL
+(older browsers) has no Ore row and shows no predictions.
+
+### Making the extract (`predict_ore = file`)
+
+1. Get **ore-extract** from the release page, next to `MuninMap.zip`
+   (`ore-extract-win-x64.zip` or `ore-extract-linux-x64.tar.gz`). It runs on any Windows or Linux
+   x64 machine; it needn't be the server.
+2. Copy the world's save folder (`worlds_local/<world>`, or the dedicated server's `worlds/`
+   folder holding it) to that machine, or point the tool at it where it is. It only reads it.
+3. Run `ore-extract run --save <world folder>`. It downloads the dedicated server and BepInEx on
+   first use (or reuses an install you name), generates the zones the save hasn't, and writes
+   `<world>-deposits.csv`. Next to a running game server, add `--slow`. Its README (in the
+   download) has the options, memory use, and stopping and resuming.
+4. Copy the file to the world's Munin data folder (`map_data/<world>/`) as `predicted-ore.csv`.
+   Munin picks it up within 30 seconds, no restart needed; a new copy replaces the old the same way.
+
+Munin refuses a file made for another world (another seed) and says so in Server details. A file
+made with another game version than the server runs is still shown, with a warning in Server
+details and a note on the page that viewers can dismiss: a game update can change where ore goes.
+Make a new extract after updates.
+
+### How the methods compare
+
+| | `file` |
+|---|---|
+| Who runs it | the admin, by hand, on any machine |
+| Time | minutes for a whole world with the fast mode on a desktop (several game processes); hours with `--slow` (one low-priority process) |
+| Memory | 2.6-3.4 GB per game process at its peak for a whole world; the fast mode runs as many as fit, and the tool stops itself before memory runs out |
+| Accuracy | the game's own generation: in tests about 99% of deposits matched the real ones (copper, tin and muddy scrap almost all; obsidian and silver 97-98%). The misses are the details the seed doesn't decide |
+| After a game update | run it again by hand; until then the warning |
 
 ## Trying it without a real server
 
