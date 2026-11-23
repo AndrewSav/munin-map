@@ -3,9 +3,9 @@
 // With predict_ore = file and reveal_all on, Munin reads the extract ore-extract wrote for this world
 // (<world data folder>/predicted-ore.csv: a '#' header, then prefab,x,y,z,zx,zy per deposit) and
 // serves its deposits as data/predicted-ore.json for the page to draw as predicted (web/js/
-// ore-layer.js). A zone the game has generated never shows predictions, only its real deposits:
-// the ones generated before the server started are dropped at load, and the list is checked again
-// whenever the game's generated-zone list grows. A viewer without the page's spoiler view gets only
+// ore-layer.js). A zone the game has generated shows its real deposits instead: the ones generated
+// before the server started are dropped at load; one generated while it runs keeps its predictions
+// until Munin's sweep has its real objects (at most 5 minutes), so the map never shows neither. A viewer without the page's spoiler view gets only
 // deposits on explored ground (in practice none: explored ground is generated), like other game
 // content; the rest is not sent at all.
 using System;
@@ -35,6 +35,13 @@ namespace MuninMap.Patches
         private static Deposit[] all = new Deposit[0];      // what the file holds (for this world)
         private static Deposit[] shown = new Deposit[0];    // minus generated zones; replaced whole, read by the HTTP threads
         private static int generatedCount = -1;
+        private static int vegVersion = int.MinValue;
+        // zones generated while the server runs, and when (realtime): their predictions stay until Munin's
+        // sweep has their real objects, so the map never shows neither (the player's game generates a zone
+        // and sends its objects over the next minutes; the sweep runs every sweep_interval)
+        private static readonly Dictionary<Vector2s, float> genSince = new Dictionary<Vector2s, float>();
+        private static HashSet<Vector2s> knownGen;
+        private const float Grace = 300f;   // after this, a generated zone's predictions go anyway
         private static int rev;
         private static string status = "no file";            // shown in the page's server details
         private static string madeFor, gameNow;               // the game versions the extract was made for and the server runs
@@ -62,19 +69,21 @@ namespace MuninMap.Patches
         public static void Load(string worldDataPath)
         {
             worldDir = worldDataPath;
-            fileTime = DateTime.MinValue; fileSize = -1; generatedCount = -1;
+            fileTime = DateTime.MinValue; fileSize = -1; generatedCount = -1; vegVersion = int.MinValue;
+            genSince.Clear(); knownGen = null;
             all = new Deposit[0]; shown = new Deposit[0]; status = "no file"; madeFor = null;
             missingLogged = false;
             if (!On) return;   // reveal_all off or predict_ore off: nothing read
             if (!started) { started = true; StaticCoroutine.Start(Watch()); }
         }
 
-        // the file changed (a new extract copied in), or the game generated zones: checked every 2 s
-        // until the world has loaded, then every 30 s
+        // the file changed (a new extract copied in), the game generated zones, or a sweep published zones:
+        // checked every 2 s until the world has loaded, then every 5 s (comparing a few numbers; the work
+        // runs only when one changed)
         private static IEnumerator Watch()
         {
             var soon = new WaitForSecondsRealtime(2f);
-            var later = new WaitForSecondsRealtime(30f);
+            var later = new WaitForSecondsRealtime(5f);
             while (true)
             {
                 yield return WorldReady() ? later : soon;
@@ -134,24 +143,43 @@ namespace MuninMap.Patches
             {
                 if (shown.Length > 0 || status != "waiting for the world to load") { shown = new Deposit[0]; changed = true; }
                 if (all.Length > 0) status = "waiting for the world to load";
-                generatedCount = -1;
+                generatedCount = -1; knownGen = null; genSince.Clear();
                 if (changed) { rev++; MapDataServer.getInstance()?.BroadcastWorldRevision(); }
                 yield break;
             }
             if (all.Length > 0 && status == "waiting for the world to load") status = "ok";
             int count = Generated()?.Count ?? -1;
-            if (changed || count != generatedCount)
+            int veg = OreLayer.VegetationVersion;
+            float now = Time.realtimeSinceStartup;
+            bool expired = false;
+            foreach (var t in genSince.Values) if (now - t >= Grace) { expired = true; break; }
+            if (changed || count != generatedCount || veg != vegVersion || expired)
             {
                 bool first = changed || generatedCount == -1;
-                generatedCount = count;
+                generatedCount = count; vegVersion = veg;
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 var gen = Generated();
                 var copy = gen != null ? new HashSet<Vector2s>(gen) : null;
+                // zones new since the last look start their wait; the ones generated before the first look
+                // (the save's) never wait
+                if (copy != null)
+                {
+                    if (knownGen != null) foreach (var z in copy) if (!knownGen.Contains(z) && !genSince.ContainsKey(z)) genSince[z] = now;
+                    knownGen = copy;
+                }
+                var done = new List<Vector2s>();
+                foreach (var kv in genSince) if (now - kv.Value >= Grace) done.Add(kv.Key);
+                foreach (var z in done) genSince.Remove(z);
+                var waiting = new HashSet<Vector2s>(genSince.Keys);
                 double copyMs = sw.Elapsed.TotalMilliseconds;
                 if (copyMs > 5) ZLog.LogWarning($"MuninMap: predicted ore: copying the {copy?.Count} generated zones took {copyMs:F1} ms");
-                yield return OffThread(() => Prune(copy, first, copyMs));
-                rev++;
-                MapDataServer.getInstance()?.BroadcastWorldRevision();
+                int before = shown.Length;
+                yield return OffThread(() => Prune(copy, waiting, first, copyMs));
+                if (changed || shown.Length != before)
+                {
+                    rev++;
+                    MapDataServer.getInstance()?.BroadcastWorldRevision();
+                }
             }
         }
 
@@ -160,12 +188,19 @@ namespace MuninMap.Patches
             try { return ZoneSystem.instance?.m_generatedZones; } catch { return null; }
         }
 
-        // worker thread: drop deposits in zones the game has generated (`gen`: a copy of its set)
-        private static void Prune(HashSet<Vector2s> gen, bool afterRead, double copyMs)
+        // worker thread: drop deposits in zones the game has generated (`gen`: a copy of its set), except
+        // zones generated lately (`waiting`) whose real objects Munin's sweep hasn't published yet
+        // (Vegetation's tables are concurrent: safe to read here)
+        private static void Prune(HashSet<Vector2s> gen, HashSet<Vector2s> waiting, bool afterRead, double copyMs)
         {
             var sw = System.Diagnostics.Stopwatch.StartNew();
             var keep = new List<Deposit>(all.Length);
-            foreach (var d in all) if (gen == null || !gen.Contains(d.zone)) keep.Add(d);
+            foreach (var d in all)
+            {
+                bool generated = gen != null && gen.Contains(d.zone);
+                if (generated && waiting.Contains(d.zone) && Vegetation.Zone(d.zone.x, d.zone.y) == null) generated = false;
+                if (!generated) keep.Add(d);
+            }
             shown = keep.ToArray();
             if (afterRead && all.Length > 0)
                 ZLog.Log($"MuninMap: predicted ore: {shown.Length} of {all.Length} deposits are in zones not generated yet "

@@ -198,7 +198,7 @@ stands):
 
 - **`off`** (default): nothing changes.
 - **`file`:** the admin makes an extract with **ore-extract** and copies it into the world's Munin
-  data folder as `predicted-ore.csv`; Munin picks it up within 30 seconds. An extract made for
+  data folder as `predicted-ore.csv`; Munin picks it up within seconds. An extract made for
   another world is refused; one made for another game version is shown with a warning in Server
   details and a note on the page that viewers can dismiss. How to make one: docs/ADVANCED.md,
   "Predicted ore".
@@ -213,7 +213,8 @@ On the map, real and predicted ore are one layer, driven by the Ore row:
   for predicted, easy to see zoomed out; ore inside Sunken Crypts is shown in Classic only).
 - **Predicted ore**, in the same checklist, shows or hides the predictions; the per-ore checkboxes
   and the Ore switch apply to both.
-- A generated zone shows only its real deposits: its predictions go within 30 seconds.
+- A generated zone shows only its real deposits. One a player generates keeps its predictions until
+  Munin's sweep has its real ones, so the spot is never empty in between.
 - Server details get a **Predicted ore** line: how many, the version they were made for, or why
   there are none.
 

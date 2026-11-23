@@ -384,8 +384,10 @@ interior is built high above the crypt, so a player inside moves among them on t
 as they are mined (at the next sweep). The shapes leave it out: they are for spotting ore on the
 ground, crypt scrap is never predicted and isn't on the ground, and a crypt is found by its marker.
 
-The per-ore checkboxes and the Ore switch hide real and predicted ore alike. When a zone is
-generated, its predictions go and its real deposits take their place (within 30 seconds). The
+The per-ore checkboxes and the Ore switch hide real and predicted ore alike. When a player
+generates a zone, its predictions stay until Munin's next sweep has the zone's real objects, and
+then the real deposits take their place (a few minutes at most: the player's game sends the objects
+to the server, and the sweep runs every `sweep_interval`). The
 stats panel's Server details get a **Predicted ore** line: how many deposits, the game version
 they were made for, or why there are none. The 3D view draws real ore only. The map without WebGL
 (older browsers) has no Ore row and shows no predictions.
@@ -402,7 +404,7 @@ they were made for, or why there are none. The 3D view draws real ore only. The 
    `<world>-deposits.csv`. Next to a running game server, add `--slow`. Its README (in the
    download) has the options, memory use, and stopping and resuming.
 4. Copy the file to the world's Munin data folder (`map_data/<world>/`) as `predicted-ore.csv`.
-   Munin picks it up within 30 seconds, no restart needed; a new copy replaces the old the same way.
+   Munin picks it up within seconds, no restart needed; a new copy replaces the old the same way.
 
 Munin refuses a file made for another world (another seed) and says so in Server details. A file
 made with another game version than the server runs is still shown, with a warning in Server

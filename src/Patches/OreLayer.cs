@@ -29,6 +29,9 @@ namespace MuninMap.Patches
         private static int[] inside = new int[0];   // the same, for ore inside dungeons
         private const float Interior = 1000f;       // dungeon interiors are built at y + 5000
 
+        // Vegetation's revision: it changes when a sweep publishes changed zones (PredictedOre watches it)
+        internal static int VegetationVersion => versionField != null ? (int)versionField.GetValue(null) : 0;
+
         private static bool IsOre(Palette.Veg k) => k == Palette.Veg.Copper || k == Palette.Veg.Tin || k == Palette.Veg.Silver
             || k == Palette.Veg.Obsidian || k == Palette.Veg.MuddyScrap || k == Palette.Veg.Ore;
 
