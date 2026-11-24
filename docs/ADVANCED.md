@@ -9,15 +9,15 @@ markers, the HTTP API, server load, and building from source.
 * [Server load and disk](#server-load-and-disk)
 * [Textures and meshes for 3D](#textures-and-meshes-for-3d)
 * [Pins and bases](#pins-and-bases)
-* [Player access](#player-access)
 * [Exporting a 3D scene](#exporting-a-3d-scene)
 * [HTTP API](#http-api)
 * [Caches and Cloudflare](#caches-and-cloudflare)
-* [Behind a reverse proxy](#behind-a-reverse-proxy)<!-- patches: TASK-16 -->
 * [Building from source](#building-from-source)
-* [Predicted ore](#predicted-ore)<!-- patches: TASK-4 -->
 * [Trying it without a real server](#trying-it-without-a-real-server)
+* [Player access](#player-access)<!-- patches: TASK-20 -->
+* [Behind a reverse proxy](#behind-a-reverse-proxy)<!-- patches: TASK-16 -->
 * [Telegram](#telegram)<!-- patches: TASK-18 -->
+* [Predicted ore](#predicted-ore)<!-- patches: TASK-4 -->
 
 ## All settings
 
@@ -194,52 +194,6 @@ it, or go back to the automatic name (a nearby portal's tag, else "Base").
 Saved in `bases.json`. If a lone workbench shows up as a base, raise
 `base_min_pieces`.
 
-## Player access
-
-With `require_auth = true`, only **claimed players** may place or remove pins,
-ping or rename or hide bases from the page, or ask for a world sweep (`POST /api/sweep`). Viewing the
-map stays open to anyone who can reach it. The admin token works as always.
-
-**Setting up:** make a file called `user.token` beside `announce.token`
-(`BepInEx/config/MuninMap`) with the **user key** in it, a strong secret: a long randomly
-generated string, such as one from a password manager or `openssl rand -hex 32`,
-not a word. Share it with your players. Without the file, nobody can claim.
-
-**Claiming:** right-click the map (or open a base) and pick your character from
-the list, enter the user key, then **Claim**. If your name isn't listed,
-join the game server first: the map only knows players it has seen online.
-Claim your main character: the claim only puts your name on
-pins, pings and base renames. Once claimed, the pin form shows your name in
-place of the name field, and middle-click pings as you without asking for one.
-
-**Your Browser ID:** the claim belongs to your browser's ID, shown as **Browser
-ID** in the pin form and the base popup (with `require_auth` off, the pin form
-calls it **Pin key**). Keep a copy of it. To act as the same player in another
-browser or on another device, paste it there in **Browser ID** and press
-**Use ID**: no second claim is needed. A browser that has claimed a player only
-accepts another ID that holds a claim too, so it can't start over with a fresh one.
-
-**Claimed the wrong player?** Ask the admin to unclaim it, then claim the right
-one. The admin unclaims from the players panel, under **Claimed players** (shown
-in a browser where the admin key has been entered, as for the server log), or
-with `POST /api/unclaim`.
-
-**Bases:** who last renamed or hid each base, and when, is kept in
-`bases-edits.json`, and a renamed base's popup names who renamed it.
-`GET /api/bases` (admin token) lists every renamed or hidden base with that
-record. Hiding a renamed base drops its name, so the list keeps the last one as
-`previousLabel`. To unhide a base, or give it back its name, send
-`POST /api/base` with `{"x": .., "z": .., "label": ".."}` (or just `x` and `z`
-for the automatic name) and the admin token.
-
-**Limitations, accepted to keep this simple:**
-* Anyone with the user key can claim any character nobody has claimed yet.
-* Two accounts can each have a character of the same name. The list tells them
-  apart by when each was first seen; pins and pings show only the name.
-* The Browser ID is effectively the player's login. It travels in the pin list's URL
-  (`data/pins.json?client=`), so it can show up in proxy and server access logs,
-  and whoever can read those can act as those players.
-
 ## Exporting a 3D scene
 
 The download button in the top bar exports an area as glTF (Blender, Godot,
@@ -295,33 +249,6 @@ CDN can never mix old and new files. Only the page itself (`/` and
 `/index.html`) must not be cached for long. Behind Cloudflare, bypass the
 cache for those two, or purge after each update.
 
-## Behind a reverse proxy<!-- patches: TASK-16 -->
-
-Munin serves plain HTTP on `server_port`. For HTTPS, put a TLS-terminating
-reverse proxy in front of it, at the root of its own host name (a sub-path
-hasn't been tried). The proxy needs:
-
-* **Everything forwarded as is:** the page, `/data/`, `/tiles/`, `/models/`,
-  `/icons/` and `/api/`, with no path rewriting.
-* **WebSocket upgrade on `/ws`.** Served over HTTPS, the page connects with
-  `wss://` by itself. The server sends an update every second even with nobody
-  online, so a normal idle timeout won't drop the connection, and the page
-  reconnects by itself after a server restart.
-* **`map_url` set to the public address**, so the link preview card and Discord
-  links use it. Without it, Munin builds the address from `X-Forwarded-Proto`
-  and `X-Forwarded-Host`, so the proxy must set those, replacing any the
-  visitor sent.
-* **Request sizes:** the requests Munin accepts carry small bodies. Pins, pings,
-  base names and claims are well under 1 KB, and an announcement
-  (`POST /announce`, admin only) is as long as the message.
-
-Keep Munin's own port closed to the outside, so it's reachable only through
-the proxy.
-
-Web pings are limited per network address. Behind a proxy every visitor shares
-the proxy's address, so with `require_auth = false` one ping per 10 seconds is
-shared by everyone. With `require_auth = true` the limit is per claimed player.
-
 ## Building from source
 
 How the project is laid out:
@@ -361,39 +288,6 @@ then `POST /api/reload` with the token: every open browser refreshes, no game
 restart needed. (A copy of the page is also built into the DLL, used when the
 `web/` folder is missing.)
 
-## Predicted ore<!-- patches: TASK-4 -->
-
-With `reveal_all = true` and `predict_ore = true`, the map shows where ore will be in zones nobody has
-visited yet, to viewers who have turned **Spoilers** on (others get none). It covers ore on the
-surface: copper, tin, silver, obsidian and muddy scrap (not the scrap inside Sunken Crypts).
-
-**On the map.** The Ore row in the left bar draws real and predicted ore together. Under its arrow:
-- **Style:** *Classic* (the default): small dots in each ore's colour, predicted ones hollow.
-  *Shapes*: a shape per ore, filled for real deposits and hollow for predicted ones, easy to see
-  zoomed out (crypt scrap shows in Classic only). Each browser remembers its choice.
-- **Predicted ore:** show the predictions or not.
-
-When a player generates a zone, its real deposits replace the predicted ones at Munin's next sweep.
-The stats panel's Server details show how many deposits are predicted, the progress while a
-prediction is being made, and a note when something is off. The 3D view shows real ore only. The
-map without WebGL has no Ore row and no predictions: real ore is drawn there as part of the Trees &
-rocks layer.
-
-### How it is worked out
-
-Munin re-runs the game's own rules for placing ore, inside the game server, using the server's own
-game data:
-- A whole world usually takes under a minute (longer on a slow or busy server), at the lowest
-  priority, and about 100 MB of memory.
-- Zones a viewer zooms into are worked out first. A restart resumes; after a game update it works the
-  zones out again by itself.
-- About 99% of the predicted deposits match the real ones (it varies slightly by ore). Near locations
-  it can be wrong: which way a location faces is often not decided by the seed, and for some
-  locations Munin leaves the location's parts out.
-- It follows the server's own game data, so mods that change what the game places, or the world
-  generator, are followed; mods that change how the game places vegetation are not.
-- Its rules are verified on Valheim 1.0.21.
-
 ## Trying it without a real server
 
 * `node tools/mockserver.js`: the page with a made-up world, fake players and
@@ -403,6 +297,79 @@ game data:
 * `tools/docker-compose.test.yml`: a real dedicated server in Docker with a
   copy of your world. Set `reveal_all = true` in its config and turn on
   Spoilers in the page's Settings to see the whole map.<!-- patches: TASK-1 -->
+
+## Player access<!-- patches: TASK-20 -->
+
+With `require_auth = true`, only **claimed players** may place or remove pins,
+ping or rename or hide bases from the page, or ask for a world sweep (`POST /api/sweep`). Viewing the
+map stays open to anyone who can reach it. The admin token works as always.
+
+**Setting up:** make a file called `user.token` beside `announce.token`
+(`BepInEx/config/MuninMap`) with the **user key** in it, a strong secret: a long randomly
+generated string, such as one from a password manager or `openssl rand -hex 32`,
+not a word. Share it with your players. Without the file, nobody can claim.
+
+**Claiming:** right-click the map (or open a base) and pick your character from
+the list, enter the user key, then **Claim**. If your name isn't listed,
+join the game server first: the map only knows players it has seen online.
+Claim your main character: the claim only puts your name on
+pins, pings and base renames. Once claimed, the pin form shows your name in
+place of the name field, and middle-click pings as you without asking for one.
+
+**Your Browser ID:** the claim belongs to your browser's ID, shown as **Browser
+ID** in the pin form and the base popup (with `require_auth` off, the pin form
+calls it **Pin key**). Keep a copy of it. To act as the same player in another
+browser or on another device, paste it there in **Browser ID** and press
+**Use ID**: no second claim is needed. A browser that has claimed a player only
+accepts another ID that holds a claim too, so it can't start over with a fresh one.
+
+**Claimed the wrong player?** Ask the admin to unclaim it, then claim the right
+one. The admin unclaims from the players panel, under **Claimed players** (shown
+in a browser where the admin key has been entered, as for the server log), or
+with `POST /api/unclaim`.
+
+**Bases:** who last renamed or hid each base, and when, is kept in
+`bases-edits.json`, and a renamed base's popup names who renamed it.
+`GET /api/bases` (admin token) lists every renamed or hidden base with that
+record. Hiding a renamed base drops its name, so the list keeps the last one as
+`previousLabel`. To unhide a base, or give it back its name, send
+`POST /api/base` with `{"x": .., "z": .., "label": ".."}` (or just `x` and `z`
+for the automatic name) and the admin token.
+
+**Limitations, accepted to keep this simple:**
+* Anyone with the user key can claim any character nobody has claimed yet.
+* Two accounts can each have a character of the same name. The list tells them
+  apart by when each was first seen; pins and pings show only the name.
+* The Browser ID is effectively the player's login. It travels in the pin list's URL
+  (`data/pins.json?client=`), so it can show up in proxy and server access logs,
+  and whoever can read those can act as those players.
+
+## Behind a reverse proxy<!-- patches: TASK-16 -->
+
+Munin serves plain HTTP on `server_port`. For HTTPS, put a TLS-terminating
+reverse proxy in front of it, at the root of its own host name (a sub-path
+hasn't been tried). The proxy needs:
+
+* **Everything forwarded as is:** the page, `/data/`, `/tiles/`, `/models/`,
+  `/icons/` and `/api/`, with no path rewriting.
+* **WebSocket upgrade on `/ws`.** Served over HTTPS, the page connects with
+  `wss://` by itself. The server sends an update every second even with nobody
+  online, so a normal idle timeout won't drop the connection, and the page
+  reconnects by itself after a server restart.
+* **`map_url` set to the public address**, so the link preview card and Discord
+  links use it. Without it, Munin builds the address from `X-Forwarded-Proto`
+  and `X-Forwarded-Host`, so the proxy must set those, replacing any the
+  visitor sent.
+* **Request sizes:** the requests Munin accepts carry small bodies. Pins, pings,
+  base names and claims are well under 1 KB, and an announcement
+  (`POST /announce`, admin only) is as long as the message.
+
+Keep Munin's own port closed to the outside, so it's reachable only through
+the proxy.
+
+Web pings are limited per network address. Behind a proxy every visitor shares
+the proxy's address, so with `require_auth = false` one ping per 10 seconds is
+shared by everyone. With `require_auth = true` the limit is per claimed player.
 
 ## Telegram<!-- patches: TASK-18 -->
 
@@ -466,3 +433,36 @@ list arrive without a notification sound, for a busy group.
 Posts are sent in the background, a few at a time, as Telegram allows; a
 slow or unreachable Telegram never holds up the game. Failures are written to
 the server log, at most once a minute.
+
+## Predicted ore<!-- patches: TASK-4 -->
+
+With `reveal_all = true` and `predict_ore = true`, the map shows where ore will be in zones nobody has
+visited yet, to viewers who have turned **Spoilers** on (others get none). It covers ore on the
+surface: copper, tin, silver, obsidian and muddy scrap (not the scrap inside Sunken Crypts).
+
+**On the map.** The Ore row in the left bar draws real and predicted ore together. Under its arrow:
+- **Style:** *Classic* (the default): small dots in each ore's colour, predicted ones hollow.
+  *Shapes*: a shape per ore, filled for real deposits and hollow for predicted ones, easy to see
+  zoomed out (crypt scrap shows in Classic only). Each browser remembers its choice.
+- **Predicted ore:** show the predictions or not.
+
+When a player generates a zone, its real deposits replace the predicted ones at Munin's next sweep.
+The stats panel's Server details show how many deposits are predicted, the progress while a
+prediction is being made, and a note when something is off. The 3D view shows real ore only. The
+map without WebGL has no Ore row and no predictions: real ore is drawn there as part of the Trees &
+rocks layer.
+
+### How it is worked out
+
+Munin re-runs the game's own rules for placing ore, inside the game server, using the server's own
+game data:
+- A whole world usually takes under a minute (longer on a slow or busy server), at the lowest
+  priority, and about 100 MB of memory.
+- Zones a viewer zooms into are worked out first. A restart resumes; after a game update it works the
+  zones out again by itself.
+- About 99% of the predicted deposits match the real ones (it varies slightly by ore). Near locations
+  it can be wrong: which way a location faces is often not decided by the seed, and for some
+  locations Munin leaves the location's parts out.
+- It follows the server's own game data, so mods that change what the game places, or the world
+  generator, are followed; mods that change how the game places vegetation are not.
+- Its rules are verified on Valheim 1.0.21.
