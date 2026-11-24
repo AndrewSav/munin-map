@@ -1,17 +1,9 @@
-<!-- patches: TASK-4 (TASK-4.5). Fork only (see PATCHES.md): MSBuild imports this file into MuninMap.csproj
+<!-- patches: TASK-4 (TASK-4.6). Fork only (see PATCHES.md): MSBuild imports this file into MuninMap.csproj
      by itself, so upstream's project file stays as it is.
-     predict_ore = server runs ore-extract's supervisor in-process (Patches/ServerExtract.cs): the shared
-     library ore-extract/core (which carries ore-extract's small game-server plugin) is built with Munin
-     and merged into MuninMap.dll with the other libraries (ILRepack.targets). -->
+     In-place ore prediction (Patches/InPlaceOre.cs) reads the game's colliders and physics query
+     settings, which are in UnityEngine.PhysicsModule. -->
 <Project>
   <ItemGroup>
-    <ProjectReference Include="..\ore-extract\core\OreExtract.Core.csproj" />
-    <!-- TASK-4.6: predict_ore = in-place raycasts its own physics scene (Patches/InPlaceOre.cs) -->
     <Reference Include="UnityEngine.PhysicsModule"><HintPath>..\libs\valheim\UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
-  <Target Name="ForkRepackInputs" BeforeTargets="ILRepacker">
-    <ItemGroup>
-      <InputAssemblies Include="$(OutputPath)OreExtract.Core.dll" />
-    </ItemGroup>
-  </Target>
 </Project>

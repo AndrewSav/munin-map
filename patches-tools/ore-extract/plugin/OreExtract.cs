@@ -1,6 +1,6 @@
 // OreExtract: generate a world's ungenerated zones on a dedicated server without a game client, write
 // out the objects of chosen prefabs (ore deposits by default) that generation created, and quit.
-// Part of the ore-extract tool (TASK-4.1 spike, TASK-4.2 tool, shipped with releases since TASK-4.3);
+// Part of the ore-extract tool (TASK-4.1 spike, TASK-4.2 tool; fork tooling since TASK-4.7);
 // not part of the Munin plugin. The ore-extract CLI (../cli) starts the server with this plugin and
 // nothing else; patches-tools/ore-extract/run.ps1 and bench.ps1 drive it in the test image.
 //

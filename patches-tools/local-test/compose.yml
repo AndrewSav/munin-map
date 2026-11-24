@@ -29,7 +29,7 @@ x-env: &env
   UPDATE_CRON: ""
   RESTART_CRON: ""
   STEAMCMD_ARGS: ""                # update only; re-checking every file over a Windows-drive mount took ~38 s
-  # predict_ore = in-place test knobs (TASK-4.6), from the shell that runs deploy.ps1; empty: off
+  # predicted ore (in-place) test knobs (TASK-4.6), from the shell that runs deploy.ps1; empty: off
   MUNIN_INPLACE_ALL: ${MUNIN_INPLACE_ALL:-}        # 1: predict generated zones too, to compare with a generated copy
   MUNIN_INPLACE_BLOCK: ${MUNIN_INPLACE_BLOCK:-}    # none | physics (default)
   MUNIN_INPLACE_BUDGET_MS: ${MUNIN_INPLACE_BUDGET_MS:-}

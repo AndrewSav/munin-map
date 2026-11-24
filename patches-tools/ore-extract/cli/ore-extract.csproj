@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- TASK-4.2/4.3: ore-extract, a standalone CLI that generates a copy of a Valheim world headless and
-     writes out its ore deposits. Shipped with the fork's releases. Built by ../build.sh:
+<!-- TASK-4.2: ore-extract, a CLI that generates a copy of a Valheim world headless and writes out its
+     ore deposits. Fork tooling (TASK-4.7): the reference in-place prediction is measured against.
+     Built by ../build.sh:
        dotnet publish -c Release -r win-x64    |    dotnet publish -c Release -r linux-x64
-     The supervisor is in ../core (shared with Munin, TASK-4.5), which builds and embeds the
-     OreExtract plugin (../plugin). The release workflow passes the
-     release stamp as InformationalVersion, so `ore-extract version` names the Munin release. -->
+     The supervisor is in ../core, which builds and embeds the OreExtract plugin (../plugin). -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>

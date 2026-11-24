@@ -14,10 +14,9 @@
 // The plain (non-WebGL) map has no ore row (real ore is part of upstream's Trees & rocks there), so it
 // gets no predictions either, for consistency (with the user): this layer isn't used there.
 //
-// Also: a line in the stats panel's Server details whenever predictions are in use, and a note that
-// can be dismissed when the extract was made for another game version than the server runs. With
-// predict_ore = server (TASK-4.5) the line also says how far the server's own extract is
-// (data/ore-extract.json, Patches/ServerExtract.cs), polled while the line can show it.
+// Also: rows in the stats panel's Server details whenever predictions are in use (TASK-4.6, 4.7):
+// the predicted deposits, how far an in-place run is while it goes, and the game version in-place
+// was verified on when the server runs another.
 // ui.js calls oreRows (the layer panel) and predictedOreLine (Server details) from one marked line each.
 
 import { on } from '../net.js';
@@ -28,7 +27,6 @@ import { escape } from '../layers/markers.js';
 
 const KEY_STYLE = 'munin-fork-ore-style';                 // classic | shapes, kept per browser
 const KEY_PREDICTED = 'munin-fork-ore-predicted';         // include predicted ore (WebGL map)
-const KEY_NOTE = 'munin-fork-predicted-ore-note';         // which version note was dismissed
 const ORE = VEG_GROUPS.find((g) => g.key === 'vegOre');
 const CHUNK = 256;
 // [sides, rotation in turns]; 0 sides = a circle
@@ -41,8 +39,7 @@ const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* this vi
 let style = read(KEY_STYLE, 'classic') === 'shapes' ? 'shapes' : 'classic';
 let includePredicted = read(KEY_PREDICTED, '1') === '1';
 
-let drawReal = false, predictOn = false, serverMode = false, predictMode = '';
-let extract = null;                          // data/ore-extract.json (predict_ore = server)
+let drawReal = false, predictOn = false;
 let real = null, predicted = null;           // the last responses
 let realIndex = new Map(), insideIndex = new Map(), predIndex = new Map();
 let layer = null;
@@ -74,10 +71,7 @@ async function fetchJson(url, have, apply) {
 const loadReal = () => drawReal && fetchJson('data/ore.json', real, (d) => { real = d; realIndex = indexOf(d.d || []); insideIndex = indexOf(d.i || []); });
 const loadPredicted = () => predictOn && fetchJson('data/predicted-ore.json', predicted, (d) => {
   predicted = d; predIndex = indexOf(d.d || []);
-  // the mode as the server has it now: the page outlives server restarts, and the config it read at load
-  // may be from before the setting changed
-  if (d.mode) { predictMode = d.mode; const was = serverMode; serverMode = d.mode === 'server'; if (serverMode && !was) pollExtract(); if (!serverMode) { clearTimeout(pollTimer); extract = null; } }
-  note(); refreshLine();
+  refreshLine();
 });
 const loadAll = () => { loadReal(); loadPredicted(); };
 on('world', loadAll);
@@ -241,9 +235,6 @@ function restyleChecklist(list) {
 export function oreRows(app, groupRow, icon, world) {
   if (!app || !app.map || !app.gl) return [];
   predictOn = !!(app.config && app.config.predict_ore);
-  predictMode = predictOn ? String(app.config.predict_ore) : '';   // off: the setting isn't sent
-  serverMode = predictOn && app.config.predict_ore === 'server';
-  if (serverMode) pollExtract();
   drawReal = true;
   ensureLayer(app);
   S.set('vegForkOre', true);   // upstream's own ore dots off: this layer draws them
@@ -290,55 +281,23 @@ export function predictedOreLine(section) {
   dl.insertAdjacentHTML('beforeend', `<div class="fork-po" style="display:contents">${rowsHtml()}</div>`);
 }
 
-const dur = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min` : s >= 60 ? `${Math.round(s / 60)} min` : 'under a minute');
-
 function rowsHtml() {
   const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const notes = [];
   const ok = predicted.status === 'ok';
-  const x = serverMode && extract && extract.on ? extract : null;
-  const ip = predicted.inplace || null;   // predict_ore = in-place (TASK-4.6)
+  const ip = predicted.inplace || null;   // the in-place run (TASK-4.6)
   const ipFailed = ip && /^failed/.test(ip.state || '');
-  const progress = (done, total) => `${(done || 0).toLocaleString()} of ${total.toLocaleString()} (${Math.floor((100 * (done || 0)) / total)}%)`;
   let h = '';
   if (predicted.game) h += row('Server version', escape(predicted.game));
   h += row('Predicted ore', ok ? `${(predicted.total || 0).toLocaleString()} deposits` : 'none');
-  if (predictMode) h += row('Prediction mode', escape(predictMode));
-  if (ok && predicted.mismatch) {
-    h += row('Prediction version', escape(predicted.madeFor || '?'));
-    notes.push('Predicted ore version differs, locations may be wrong.');
-  }
-  // why there are no predicted deposits, in words; not while server or in-place mode is making the
-  // prediction (its row says so)
-  if (!ok && !(x && x.state !== 'failed') && !(ip && !ipFailed)) {
-    const st = predicted.status || '';
-    notes.push(st === 'no file' || !st ? 'No prediction file found.' : `${escape(st.charAt(0).toUpperCase() + st.slice(1))}.`);
-  }
-  // the update rows only while an update is in progress
   if (ip) {
-    if (ip.state === 'running' && ip.total) h += row('Prediction update', progress(ip.done, ip.total));
+    // the update row only while a run is in progress
+    if (ip.state === 'running' && ip.total) h += row('Prediction update', `${(ip.done || 0).toLocaleString()} of ${ip.total.toLocaleString()} (${Math.floor((100 * (ip.done || 0)) / ip.total)}%)`);
     else if (ip.state && ip.state.startsWith('waiting')) h += row('Prediction update', 'waiting for the world');
     if (ipFailed) notes.push(`Prediction ${escape(ip.state)}.`);
     if (ip.checked && predicted.game && ip.checked !== predicted.game) {
       h += row('Verified on', escape(ip.checked));
       notes.push('Predicted ore uses placement rules verified on a different version, locations may be wrong.');
-    }
-  }
-  if (x) {
-    switch (x.state) {
-      case 'running':
-        if (x.total) {
-          h += row('Prediction update', progress(x.done, x.total));
-          if (x.secondsLeft >= 0) h += row('Update ETA', `${dur(x.secondsLeft)} left`);
-        } else h += row('Prediction update', 'starting');
-        break;
-      case 'starting': h += row('Prediction update', x.resumed ? 'resuming' : 'starting'); break;
-      case 'loading': h += row('Prediction update', 'loading the world'); break;
-      case 'waiting': h += row('Prediction update', x.reason ? `waiting for ${escape(x.reason)}` : 'waiting'); break;
-      case 'failed':
-        notes.push(`Prediction update failed: ${escape(x.reason || 'unknown reason')}. It is tried again when the server restarts.`);
-        break;
-      default: break;   // done, current: no update rows
     }
   }
   if (notes.length) h += `<div style="grid-column:1/-1;font-size:12px;line-height:1.35;color:var(--muted)">${notes.join(' ')}</div>`;
@@ -351,35 +310,3 @@ function refreshLine() {
   for (const el of document.querySelectorAll('.fork-po')) if (el.innerHTML !== html) el.innerHTML = html;
 }
 
-let pollTimer = null;
-async function pollExtract() {
-  clearTimeout(pollTimer);
-  try {
-    const d = await (await fetch('data/ore-extract.json', { cache: 'no-store' })).json();
-    const was = extract && extract.state;
-    extract = d;
-    refreshLine();
-    if (was && was !== 'done' && d.state === 'done') loadPredicted();
-  } catch (e) { console.warn('ore extract status', e); }
-  const active = extract && ['waiting', 'starting', 'loading', 'running'].includes(extract.state);
-  pollTimer = setTimeout(pollExtract, active ? 15000 : 60000);
-}
-
-let noteEl = null;
-function note() {
-  const d = predicted;
-  const want = d && d.on && d.status === 'ok' && d.mismatch;
-  const id = want ? `${d.madeFor}|${d.game}` : '';
-  if (!want || read(KEY_NOTE, '') === id) { if (noteEl) noteEl.hidden = true; return; }
-  if (!noteEl) {
-    noteEl = document.createElement('div');
-    noteEl.className = 'fork-predicted-note';
-    noteEl.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:1000;max-width:340px;padding:10px 32px 10px 12px;'
-      + 'background:#2a2416;color:#f0e2b6;border:1px solid #8a6d2a;border-radius:8px;font-size:13px;line-height:1.35;box-shadow:0 4px 14px rgba(0,0,0,.45)';
-    document.body.append(noteEl);
-  }
-  noteEl.innerHTML = `Predicted ore was made for Valheim ${escape(d.madeFor)}; this server runs ${escape(d.game)}, so it may not match.`
-    + '<button type="button" title="Dismiss" style="position:absolute;top:4px;right:6px;background:none;border:0;color:inherit;font-size:18px;cursor:pointer">×</button>';
-  noteEl.querySelector('button').addEventListener('click', () => { write(KEY_NOTE, id); noteEl.hidden = true; });
-  noteEl.hidden = false;
-}

@@ -1,6 +1,6 @@
 // patches: TASK-4 (TASK-4.6). In-place ore prediction (fork only, see PATCHES.md).
 //
-// With predict_ore = in-place and reveal_all on, Munin works out the ore deposits of zones the game
+// With predict_ore = true and reveal_all on, Munin works out the ore deposits of zones the game
 // has not generated yet by re-running the game's vegetation pass (ZoneSystem.PlaceVegetation, backlog
 // doc-2) for them. Nothing is spawned in the world and no zone is generated. The work runs on a few
 // lowest-priority worker threads; the game thread only reads the game's data once at the start and
@@ -10,8 +10,8 @@
 //   - the zone's terrain, worked out per vertex with HeightmapBuilder's formula (ZoneTerrain; against
 //     HeightmapBuilder.Build for a few zones),
 //   - the block check, as ray tests against the prefabs' own colliders (Blockers).
-// The result goes to its own file (FileName), which PredictedOre shows like an extract, so an extract
-// made by file or server mode is never overwritten. A restart resumes from the file's done set.
+// The result goes to the world's predicted-ore.csv (PredictedOre.FileName), which PredictedOre reads and
+// serves. A restart resumes from the file's done set.
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -28,7 +28,8 @@ namespace MuninMap.Patches
 {
     internal static class InPlaceOre
     {
-        public const string FileName = "predicted-ore-inplace.csv";
+        public const string FileName = PredictedOre.FileName;
+        private const string OldFileName = "predicted-ore-inplace.csv";   // its name before TASK-4.7
         // The Valheim version in-place was verified on (the game-update routine, DRAFT-10): the parts
         // copied from the game's code (placement, locations, Awake draws) were compared with it and the
         // result measured against a generated copy. Raised in a Munin release when the routine has been run
@@ -52,7 +53,7 @@ namespace MuninMap.Patches
         private static int threads = 2;
         private static int zoneDelayMs;   // testing: slow the workers down so the order can be watched
 
-        public static bool On => PredictedOre.Mode == "in-place" && MuninConfig.REVEAL_ALL;
+        public static bool On => PredictedOre.On;
 
         private static string worldDir;
         private static int generation;   // bumped per world, so an old run stops
@@ -470,6 +471,7 @@ namespace MuninMap.Patches
             string seed = WorldGenerator.instance.m_world.m_seedName;
             string game = global::Version.CurrentVersion.ToString();
             string path = Path.Combine(worldDir, FileName);
+            AdoptOldFile(path, Path.Combine(worldDir, OldFileName));
             var order = ZoneOrder();
             zonesTotal = order.Count;
             var found = new List<Found>();
@@ -1102,6 +1104,24 @@ namespace MuninMap.Patches
         }
 
         private static string Get(Dictionary<string, string> d, string k) => d.TryGetValue(k, out var v) ? v : null;
+
+        // TASK-4.7 renamed the file. An in-place file under the old name takes the new name (so a run in
+        // progress resumes), unless an in-place file is already there; a file under the new name that
+        // in-place didn't write (an extract from the removed file and server modes) is replaced by it,
+        // and otherwise by the run, since Resume ignores a file without in-place's header.
+        private static void AdoptOldFile(string path, string oldPath)
+        {
+            try
+            {
+                if (!File.Exists(oldPath)) return;
+                bool current = File.Exists(path) && File.ReadLines(path).Take(8).Any(l => l.Trim() == "# method: in-place");
+                if (current) { File.Delete(oldPath); return; }
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(oldPath, path);
+                ZLog.Log("MuninMap: in-place ore: " + OldFileName + " renamed to " + FileName);
+            }
+            catch (Exception e) { ZLog.LogWarning("MuninMap: in-place ore: renaming " + oldPath + ": " + e.Message); }
+        }
 
         // written to a temporary name and moved into place, so PredictedOre never reads half a file
         private static System.Threading.Tasks.Task writing;

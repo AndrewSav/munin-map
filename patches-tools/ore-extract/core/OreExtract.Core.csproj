@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- TASK-4.5: ore-extract's supervisor (copying the save, setting up and starting the generation
-     servers, watching them, guarding memory, joining their output), shared by
-       ../cli, the ore-extract command-line tool (.NET 8), and
-       Munin (net48, on the game's Mono), which runs it in-process for predict_ore = server and
-       merges this library into MuninMap.dll (src/Directory.Build.targets).
+     servers, watching them, guarding memory, joining their output), used by ../cli, the ore-extract
+     command-line tool. It also builds for net48 because Munin once ran it in-process (predict_ore =
+     server, removed in TASK-4.7); that path is unused now.
      The OreExtract plugin (../plugin) is built first and embedded here. -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>

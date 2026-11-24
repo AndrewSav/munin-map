@@ -8,7 +8,7 @@ namespace OreExtractCli;
 internal static class Program
 {
     internal static readonly string ToolVersion =
-        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";   // e.g. 3.4.0+patches.5 (the release stamp)
+        typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";   // OREEXTRACT_VERSION at build time, else 0.0.0-local
 
     private const string Usage = """
 ore-extract - predict a Valheim world's ore deposits by generating a copy of it headless

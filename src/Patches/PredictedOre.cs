@@ -1,9 +1,9 @@
-// patches: TASK-4 (TASK-4.4). Predicted ore deposits from an extract file (fork only, see PATCHES.md).
+// patches: TASK-4 (TASK-4.4, TASK-4.7). Predicted ore deposits (fork only, see PATCHES.md).
 //
-// With predict_ore = file and reveal_all on, Munin reads the extract ore-extract wrote for this world
-// (<world data folder>/predicted-ore.csv: a '#' header, then prefab,x,y,z,zx,zy per deposit) and
-// serves its deposits as data/predicted-ore.json for the page to draw as predicted (web/js/
-// patches/ore-layer.js). A zone the game has generated shows its real deposits instead: the ones generated
+// With predict_ore = true and reveal_all on, in-place prediction (InPlaceOre) works the deposits out
+// and writes them to <world data folder>/predicted-ore.csv (a '#' header, then prefab,x,y,z,zx,zy per
+// deposit); this reads that file as it changes and serves its deposits as data/predicted-ore.json for
+// the page to draw as predicted (web/js/patches/ore-layer.js). A zone the game has generated shows its real deposits instead: the ones generated
 // before the server started are dropped at load; one generated while it runs keeps its predictions
 // until Munin's sweep has its real objects (at most 5 minutes), so the map never shows neither. A viewer without the page's spoiler view gets only
 // deposits on explored ground (in practice none: explored ground is generated), like other game
@@ -25,7 +25,7 @@ namespace MuninMap.Patches
     internal static class PredictedOre
     {
         public const string FileName = "predicted-ore.csv";
-        public static string Mode = "off";   // off | file | server (TASK-4.5: ServerExtract makes the file) | in-place (TASK-4.6: InPlaceOre makes its own file)
+        public static bool Enabled;   // predict_ore
 
         private struct Deposit { public byte kind; public int x, z; public Vector2s zone; }
 
@@ -44,31 +44,43 @@ namespace MuninMap.Patches
         private const float Grace = 300f;   // after this, a generated zone's predictions go anyway
         private static int rev;
         private static string status = "no file";            // shown in the page's server details
-        private static string madeFor, gameNow;               // the game versions the extract was made for and the server runs
+        private static string madeFor, gameNow;               // the game versions the file was made for and the server runs
         private static bool started;
-        private static bool missingLogged;   // the missing file is logged once, until it appears
 
-        public static bool On => (Mode == "file" || Mode == "server" || Mode == "in-place") && MuninConfig.REVEAL_ALL;
-
-        // in-place mode keeps its own file, so it never overwrites an extract
-        private static string ModeFile => Mode == "in-place" ? InPlaceOre.FileName : FileName;
+        public static bool On => Enabled && MuninConfig.REVEAL_ALL;
 
         public static void Bind(ConfigFile config)
         {
-            Mode = config.Bind("Server", "predict_ore", Mode, new ConfigDescription(
-                "Show predicted ore deposits in zones nobody has visited yet (needs reveal_all = true). "
-                + "off: none. file: from an extract made with ore-extract and copied into this world's Munin data folder as "
-                + FileName + "; server: Munin makes that extract itself, in the background on this server "
-                + "(half an hour to an hour and a half, up to 3.5 GB of memory, progress in the page's Server details); "
-                + "in-place: Munin works the deposits out itself from the game's placement rules, usually in under a minute, with no extract and no extra process "
-                + "(a little less exact than an extract near locations; see docs/ADVANCED.md, Predicted ore).",
-                new AcceptableValueList<string>("off", "file", "server", "in-place"))).Value;
-            if (Mode != "file" && Mode != "server" && Mode != "in-place") Mode = "off";
+            // Before TASK-4.7 the setting had modes (off, file, server, in-place). Such a value is taken
+            // out of the file before binding, so BepInEx doesn't warn that it can't read it, and saved as
+            // a bool: off is false, any other mode is true (whoever chose one wanted predictions).
+            string old = TakeOldValue(config, new ConfigDefinition("Server", "predict_ore"));
+            var entry = config.Bind("Server", "predict_ore", false,
+                "Show predicted ore deposits in zones nobody has visited yet (needs reveal_all = true). Munin works them out "
+                + "itself from the game's placement rules, in the background, usually in under a minute; see docs/ADVANCED.md, Predicted ore.");
+            if (old != null) { entry.Value = old != "off"; ZLog.Log($"MuninMap: predict_ore = {old} (an older setting) is now predict_ore = {entry.Value}"); }
+            Enabled = entry.Value;
+        }
+
+        // an old (mode) value of the setting, removed from what BepInEx read from the file; null when there
+        // is none or it is already a bool
+        private static string TakeOldValue(ConfigFile config, ConfigDefinition def)
+        {
+            try
+            {
+                var prop = typeof(ConfigFile).GetProperty("OrphanedEntries", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+                if (!(prop?.GetValue(config) is Dictionary<ConfigDefinition, string> orphans) || !orphans.TryGetValue(def, out string raw)) return null;
+                string v = raw?.Trim().ToLowerInvariant();
+                if (v != "off" && v != "file" && v != "server" && v != "in-place") return null;
+                orphans.Remove(def);
+                return v;
+            }
+            catch { return null; }
         }
 
         public static void AddTo(Dictionary<string, object> config)
         {
-            if (On) config["predict_ore"] = Mode;
+            if (On) config["predict_ore"] = true;
         }
 
         // per world, from MuninMap.NewWorld (main thread)
@@ -78,15 +90,13 @@ namespace MuninMap.Patches
             fileTime = DateTime.MinValue; fileSize = -1; generatedCount = -1; vegVersion = int.MinValue;
             genSince.Clear(); knownGen = null;
             all = new Deposit[0]; shown = new Deposit[0]; status = "no file"; madeFor = null;
-            missingLogged = false;
             gameNow = global::Version.CurrentVersion.ToString();
-            ServerExtract.Load(worldDataPath);
             InPlaceOre.Load(worldDataPath);
             if (!On) return;   // reveal_all off or predict_ore off: nothing read
             if (!started) { started = true; StaticCoroutine.Start(Watch()); }
         }
 
-        // the file changed (a new extract copied in), the game generated zones, or a sweep published zones:
+        // the file changed (in-place wrote it), the game generated zones, or a sweep published zones:
         // checked every 2 s until the world has loaded, then every 5 s (comparing a few numbers; the work
         // runs only when one changed)
         private static IEnumerator Watch()
@@ -130,18 +140,16 @@ namespace MuninMap.Patches
         {
             if (worldDir == null || !On) yield break;
             bool changed = false;
-            string path = Path.Combine(worldDir, ModeFile);
+            string path = Path.Combine(worldDir, FileName);
             var fi = new FileInfo(path);
             if (!fi.Exists)
             {
                 if (fileSize != -1 || all.Length > 0) { all = new Deposit[0]; status = "no file"; madeFor = null; changed = true; }
-                if (!missingLogged && Mode == "file") { missingLogged = true; ZLog.Log("MuninMap: predicted ore: no " + ModeFile + " in " + worldDir + " (predict_ore = file); nothing shown"); }
                 fileSize = -1; fileTime = DateTime.MinValue;
             }
             else if (fi.LastWriteTimeUtc != fileTime || fi.Length != fileSize)
             {
                 fileTime = fi.LastWriteTimeUtc; fileSize = fi.Length;
-                missingLogged = false;
                 gameNow = global::Version.CurrentVersion.ToString();
                 string seedHere = null;
                 try { seedHere = WorldGenerator.instance?.m_world?.m_seedName ?? ZNet.World?.m_seedName; } catch { }
@@ -157,7 +165,6 @@ namespace MuninMap.Patches
                 yield break;
             }
             if (all.Length > 0 && status == "waiting for the world to load") status = "ok";
-            ServerExtract.Step(status == "ok" && madeFor != null && madeFor == gameNow, gameNow);
             int count = Generated()?.Count ?? -1;
             int veg = OreLayer.VegetationVersion;
             float now = Time.realtimeSinceStartup;
@@ -258,8 +265,8 @@ namespace MuninMap.Patches
             }
             if (seedThere == null || madeFor == null)
             {
-                status = "not an ore-extract file (no seed or game version in its header)";
-                ZLog.LogWarning("MuninMap: predicted ore: " + path + " is not an ore-extract file (no seed or game version in its header); nothing shown");
+                status = "not a prediction file (no seed or game version in its header)";
+                ZLog.LogWarning("MuninMap: predicted ore: " + path + " is not a prediction file (no seed or game version in its header); nothing shown");
                 madeFor = null;
                 return;
             }
@@ -272,7 +279,7 @@ namespace MuninMap.Patches
             }
             all = list.ToArray();
             status = "ok";
-            ZLog.Log($"MuninMap: predicted ore: {all.Length} deposits read from {ModeFile} (made for Valheim {madeFor}"
+            ZLog.Log($"MuninMap: predicted ore: {all.Length} deposits read from {FileName} (made for Valheim {madeFor}"
                 + (madeFor != gameNow ? $", the server runs {gameNow}" : "") + (bad > 0 ? $"; {bad} unreadable lines skipped" : "")
                 + $"; {sw.Elapsed.TotalMilliseconds:F0} ms on a worker thread)");
         }
@@ -293,20 +300,17 @@ namespace MuninMap.Patches
         // Before upstream's routing (from Access.Handle): true when this request was answered here
         public static bool Handle(HttpRequestEventArgs e, string path, bool post)
         {
-            if (path == "/data/ore-extract.json" && !post) return ServerExtract.Handle(e);
             if (path != "/data/predicted-ore.json") return false;
             if (post) return false;
             if (!On) return Access.Json(e, 200, "{\"on\":false}");
             bool all = Spoilers.Requested;
             var d = shown;
             var j = new JsonWriter(64 + d.Length * 16).BeginObject()
-                .Prop("on", true).Prop("rev", rev).Prop("status", status).Prop("mode", Mode);
-            if (madeFor != null) j.Prop("madeFor", madeFor);
+                .Prop("on", true).Prop("rev", rev).Prop("status", status);
             if (gameNow != null) j.Prop("game", gameNow);
-            j.Prop("mismatch", madeFor != null && gameNow != null && madeFor != gameNow);
             j.Prop("total", d.Length);
-            if (Mode == "in-place")   // TASK-4.6: the run's state and the version it was checked against
-                j.Key("inplace").BeginObject().Prop("state", InPlaceOre.Status).Prop("done", InPlaceOre.ZonesDone)
+            // TASK-4.6: the in-place run's state and the version it was verified on
+            j.Key("inplace").BeginObject().Prop("state", InPlaceOre.Status).Prop("done", InPlaceOre.ZonesDone)
                     .Prop("total", InPlaceOre.ZonesTotal).Prop("checked", InPlaceOre.CheckedAgainst).End();
             // [kind, x, z, kind, x, z, ...]: only explored ground for a viewer without spoilers
             var sb = new System.Text.StringBuilder(d.Length * 14);

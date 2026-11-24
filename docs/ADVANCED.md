@@ -96,7 +96,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | User | `require_auth` | false | only claimed players may pin, ping or edit bases from the page, or ask for a sweep by API; see [Player access](#player-access) |
 | Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
 | Server | `show_seed` | false | show the world's seed in the stats panel's Server details, for seed-map websites. The seed reveals the whole world there (a spoiler); off, it is not sent at all. Players on the server can get it anyway: the game's `printseeds` console command (F5, with the `-console` launch option) prints it |
-| Server | `predict_ore` | off | show predicted ore deposits in zones nobody has visited yet (needs `reveal_all`). `off`: none. `file`: from an extract made with ore-extract. `server`: Munin makes that extract itself, in the background on the server. `in-place`: Munin works the deposits out itself from the game's placement rules, usually in under a minute, with no extract; see [Predicted ore](#predicted-ore) |
+| Server | `predict_ore` | false | show predicted ore deposits in zones nobody has visited yet (needs `reveal_all`): Munin works them out itself from the game's placement rules, usually in under a minute; see [Predicted ore](#predicted-ore) |
 
 ## Your own markers
 
@@ -128,10 +128,7 @@ update.
 | `<world>/events.jsonl` | the events log |
 | `<world>/bases.json` | base names you set |
 | `<world>/markers.json` | your own markers (you make this one) |
-| `<world>/predicted-ore.csv` | predicted ore deposits: with `predict_ore = file` you copy this one in, with `server` Munin makes it |
-| `<world>/predicted-ore-inplace.csv` | with `predict_ore = in-place`: the deposits Munin worked out, and which zones are done (so a restart resumes) |
-| `<world>/ore-extract-run/`, `ore-extract-status.txt`, `ore-extract.log` | with `predict_ore = server`: the extract's working files (kept while it runs, so a restart resumes it), how far it is, and its output |
-| `ore-extract/` | with `predict_ore = server`: the extract's own working files (the game's location version, read once per game build) |
+| `<world>/predicted-ore.csv` | with `predict_ore`: the predicted ore deposits Munin worked out, and which zones are done (so a restart resumes) |
 | `<world>/*-cache.*` | caches so a restart serves the map at once |
 | `models/` | 3D models, textures and meshes from the game files |
 | `runestones.txt` | which locations hold runestones and Vegvisirs |
@@ -269,7 +266,6 @@ with a heightmap. Fog applies: nothing unexplored leaves the server. See
 | `POST /api/pin`, `POST /api/unpin`, `POST /api/base` | add or remove a pin, rename or hide a base (with `require_auth`, a claimed key) |
 | `/data/ore.json` | ore deposits as points `[kind, x, z, ...]`, for the page's ore layer (explored ground only, unless the viewer has the spoiler view) |
 | `/data/predicted-ore.json` | predicted ore deposits and their status ([Predicted ore](#predicted-ore)) |
-| `/data/ore-extract.json` | with `predict_ore = server`: how far the server's own extract is |
 | `/data/claim.json?client=`, `/data/claimable.json`, `POST /api/claim` | this browser's claim, the players it may claim, claiming one ([Player access](#player-access)) |
 
 Need the token (`X-Announce-Token: <secret>`, from `announce.token` next to
@@ -367,7 +363,7 @@ restart needed. (A copy of the page is also built into the DLL, used when the
 
 ## Predicted ore<!-- patches: TASK-4 -->
 
-With `reveal_all = true` and `predict_ore` set, the map shows where ore will be in zones nobody has
+With `reveal_all = true` and `predict_ore = true`, the map shows where ore will be in zones nobody has
 visited yet, to viewers who have turned **Spoilers** on (others get none). It covers ore on the
 surface: copper, tin, silver, obsidian and muddy scrap (not the scrap inside Sunken Crypts).
 
@@ -378,64 +374,25 @@ surface: copper, tin, silver, obsidian and muddy scrap (not the scrap inside Sun
 - **Predicted ore:** show the predictions or not.
 
 When a player generates a zone, its real deposits replace the predicted ones at Munin's next sweep.
-The stats panel's Server details show how many deposits are predicted, the prediction mode, the
-progress while a prediction is being made, and a note when something is off. The 3D view and the map
-without WebGL show real ore only.
+The stats panel's Server details show how many deposits are predicted, the progress while a
+prediction is being made, and a note when something is off. The 3D view shows real ore only. The
+map without WebGL has no Ore row and no predictions: real ore is drawn there as part of the Trees &
+rocks layer.
 
-There are three ways to get the prediction:
-- `file`: you make an extract with ore-extract and copy it in;
-- `server`: Munin makes that extract itself, on the server;
-- `in-place`: Munin works the deposits out itself, inside the game server.
-
-### Making the extract (`predict_ore = file`)
-
-1. Get **ore-extract** from the release page, next to `MuninMap.zip`
-   (`ore-extract-win-x64.zip` or `ore-extract-linux-x64.tar.gz`). It runs on any Windows or Linux
-   x64 machine, not only the server.
-2. Run `ore-extract run --save <world folder>` on a copy of the world's save folder
-   (`worlds_local/<world>`). It downloads the dedicated server and BepInEx on first use and writes
-   `<world>-deposits.csv`. Next to a running game server, add `--slow`. Its README (in the download)
-   has the options.
-3. Copy the file to the world's Munin data folder as `predicted-ore.csv`. Munin picks it up within
-   seconds, no restart needed.
-
-A file made for another world is refused. One made for another game version is shown with a warning:
-make a new extract after game updates.
-
-### The server makes the extract (`predict_ore = server`)
-
-Munin makes the same extract on the server, with nothing else to install:
-- It starts by itself when there is no current prediction, and again after a game update. It works
-  on a copy of the world's save; the live world is never written.
-- It runs a second, headless game server at the lowest priority on one core: half an hour to an hour
-  and a half for a whole world, up to about 3.5 GB of memory (it needs 4.5 GB free to start).
-- Server details show its progress and time left, or why it failed. A restart resumes it.
-
-ore-extract's game server loads no other mods, so mods that change world generation aren't applied
-by `file` or `server`.
-
-### Munin works it out (`predict_ore = in-place`)
+### How it is worked out
 
 Munin re-runs the game's own rules for placing ore, inside the game server, using the server's own
-game data. There is nothing to set up and no extra process:
+game data:
 - A whole world usually takes under a minute (longer on a slow or busy server), at the lowest
   priority, and about 100 MB of memory.
 - Zones a viewer zooms into are worked out first. A restart resumes; after a game update it works the
   zones out again by itself.
-- Near locations it is a little less exact than an extract. Which way a location faces is often not
-  decided by the seed, so both can be wrong there, but for some locations in-place leaves the
-  location's parts out rather than placing them.
+- About 99% of the predicted deposits match the real ones (it varies slightly by ore). Near locations
+  it can be wrong: which way a location faces is often not decided by the seed, and for some
+  locations Munin leaves the location's parts out.
+- It follows the server's own game data, so mods that change what the game places, or the world
+  generator, are followed; mods that change how the game places vegetation are not.
 - Its rules are verified on Valheim 1.0.21.
-
-### How the methods compare
-
-| | `file` | `server` | `in-place` |
-|---|---|---|---|
-| Who runs it | the admin, by hand, on any machine | Munin, on the server, by itself | Munin, on the server, by itself |
-| Time for a whole world | minutes on a desktop; hours with `--slow` | half an hour to an hour and a half | usually under a minute |
-| Memory | about 3 GB per game process | up to about 3.5 GB | about 100 MB |
-| Accuracy | about 99% of deposits match the real ones | the same (it is the same extract) | about 99% (99.2% against 99.3% for an extract); both vary slightly by ore |
-| After a game update | run it again by hand | made again by itself | worked out again by itself |
 
 ## Trying it without a real server
 

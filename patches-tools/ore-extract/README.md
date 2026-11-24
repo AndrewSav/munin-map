@@ -3,18 +3,12 @@
 Predicts where a Valheim world's ore deposits are, including in zones nobody has visited yet. It
 generates a copy of the world on a headless dedicated server (no game client, no players), lets
 the game place everything with its own rules, and writes the ore deposits it placed to a CSV file.
-It comes with each release of this fork of Munin Map, separately from the plugin.
 
-## Get it
-
-From the fork's release page, next to `MuninMap.zip`:
-- Windows: `ore-extract-win-x64.zip`, holding `ore-extract.exe`;
-- Linux: `ore-extract-linux-x64.tar.gz`, holding `ore-extract`.
-
-Each is one self-contained file (no .NET, Docker or install needed) plus this README.
-`SHA256SUMS` on the release lists their checksums. `releases/latest/download/<file name>` always
-gives the newest. `ore-extract version` prints the release it belongs to (for example
-`3.4.0+patches.5`).
+It is fork tooling, not part of the plugin or its releases. Its CSV has the same format as the
+`predicted-ore.csv` Munin's in-place prediction writes, so it is the reference in-place is measured
+against (`compare.py` in this folder). It downloads the dedicated server and BepInEx by itself,
+which makes it handy for test runs on another machine. Build it with `build.sh` (below): each
+platform's build is one self-contained file (no .NET, Docker or install needed).
 
 ## Use
 
@@ -44,8 +38,7 @@ as between two parallel runs.
 
 ### Run by another program
 
-Munin doesn't need the tool for `predict_ore = server`: it runs the same code (`core/`) in its
-own process. For another program that runs the tool, three options help: `--run-dir DIR` puts the run in a fixed folder (so it can be
+For a program that runs the tool, three options help: `--run-dir DIR` puts the run in a fixed folder (so it can be
 found and resumed after a restart), `--status FILE` keeps a small `key=value` file saying how the
 run is going (state, zones done and in all, zones per minute, seconds left, the reason for a
 failure), and `--parent-pid PID` stops the run (it can be resumed) when that process is gone. The
@@ -140,17 +133,17 @@ working files are deleted at the end unless `--keep`.
 ```
 
 Each bundle holds the one executable and this README. `OREEXTRACT_VERSION` sets the version it
-reports (the release workflow passes the release stamp); without it, `0.0.0-local`.
+reports; without it, `0.0.0-local`.
 
-Needs the .NET 8 SDK and the game's and BepInEx's assemblies in `../libs` (Munin's `build.sh` puts
-them there), and zip or PowerShell for the Windows bundle. The code:
+Needs the .NET 8 SDK and the game's and BepInEx's assemblies in the repo's `libs/` (Munin's build
+puts them there), and zip or PowerShell for the Windows bundle. The code:
 - `plugin/`: the OreExtract BepInEx plugin that drives the generation inside the server; built
   first and embedded in `core`.
 - `core/`: the part that copies the save, starts the servers, watches them, guards memory and
-  joins their output; built for .NET 8 (the tool) and .NET Framework 4.8 (Munin, which merges it
-  into `MuninMap.dll` and runs it in-process for `predict_ore = server`).
+  joins their output; built for .NET 8 (the tool), and for .NET Framework 4.8 from when Munin ran
+  it in-process (no longer used).
 - `cli/`: the `ore-extract` command-line tool: options, and finding or downloading the server and
   BepInEx.
 
-The accuracy checks (`compare.py`, `compare_locations.py`) and the spike's test-image scripts are
-in `patches-tools/ore-extract/`.
+The accuracy checks (`compare.py`, `compare_locations.py`) and the spike's test-image scripts
+(`run.ps1`, `bench.ps1`) are in this folder too.
