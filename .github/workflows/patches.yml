@@ -2,7 +2,8 @@
 # in the fork's Actions settings). Scripts it runs live in patches-tools/ci/.
 #
 #   push to patches          build only: a rebase that breaks the build shows up as a failed run
-#   push a patches-X.Y.Z-N tag   build and publish that release (the tag's message is its notes)
+#   push a patches-X.Y.Z-N tag   build and publish that release (notes from patches-tools/release-notes.md
+#                                at the tag, TASK-33)
 #   Run workflow (patches)   work out the next patches-X.Y.Z-N tag, create and push it, then build
 #                            and publish it here (a tag pushed with this run's token starts no new run)
 #
@@ -31,7 +32,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           submodules: true        # websocket-sharp's source (TASK-5)
-          fetch-depth: 0          # the tags and history the release notes are worked out from
+          fetch-depth: 0          # the tags the release number and the notes check are worked out from
 
       - name: Which release
         id: rel
@@ -91,10 +92,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${{ steps.rel.outputs.tag }}"
-          # the tag as it is on the remote: a checkout can leave a pushed tag without its message
-          [ "${{ github.event_name }}" = "workflow_dispatch" ] || git fetch --force origin "refs/tags/$tag:refs/tags/$tag"
-          git tag -l --format='%(contents)' "$tag" > notes.md
-          [ -s notes.md ] || echo "Munin Map ${{ steps.rel.outputs.version }} with this fork's changes (see PATCHES.md)." > notes.md
+          # the notes: patches-tools/release-notes.md at the tag, with PATCHES.md and the tasks linked (TASK-33)
+          bash patches-tools/ci/release-tag.sh notes "$tag" "${{ github.server_url }}/${{ github.repository }}" > notes.md
+          cat notes.md
           # every asset or none: a missing one stops the run before the release exists
           assets="dist/MuninMap.zip dist/SHA256SUMS"
           for f in $assets; do [ -s "$f" ] || { echo "::error::$f is missing; not publishing"; exit 1; }; done
