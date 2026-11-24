@@ -424,8 +424,7 @@ game data. There is nothing to set up and no extra process:
   zones out again by itself.
 - It is a little less exact than an extract near locations: which way a location faces is often not
   decided by the seed, so ore close to some of them can be wrong.
-- Its rules are verified on Valheim 1.0.21. On another game version it still works, and Server
-  details say so.
+- Its rules are verified on Valheim 1.0.21.
 
 ### How the methods compare
 
