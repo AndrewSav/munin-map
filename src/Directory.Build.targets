@@ -6,6 +6,8 @@
 <Project>
   <ItemGroup>
     <ProjectReference Include="..\ore-extract\core\OreExtract.Core.csproj" />
+    <!-- TASK-4.6: predict_ore = in-place raycasts its own physics scene (Patches/InPlaceOre.cs) -->
+    <Reference Include="UnityEngine.PhysicsModule"><HintPath>..\libs\valheim\UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
   </ItemGroup>
   <Target Name="ForkRepackInputs" BeforeTargets="ILRepacker">
     <ItemGroup>

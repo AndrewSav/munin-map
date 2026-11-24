@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T22:22:21Z'
-updated_date: '2026-11-23T04:10:06Z'
+updated_date: '2026-11-24T04:05:23Z'
 labels:
   - plugin
   - web
@@ -83,6 +83,8 @@ Before closing: reveal_all = false with predict_ore = file now reads nothing (it
 Live switch tested with the user (joined the test server, Highseat on their client for travel, then off): the zones they generated lost their predictions at the next 30 s check; the real objects reached the server over the next minutes (the client generates zones and sends them) and the next sweep added the real deposits. All 40 real deposits around the player matched a prediction (same ore, within 1.5 m); about 99% across all real surface deposits. Expected delay: predictions go within 30 s, real deposits after the client has sent them and the next sweep (a few minutes).
 
 Follow-up (the user saw a gap of dozens of seconds with neither predicted nor real ore after generating zones): a zone generated while the server runs now keeps its predictions until Munin's sweep has published its real objects (Vegetation has the zone), with a 5-minute fallback; the check runs every 5 s (only compares counters; the page is told only when the shown set changes). Retested by the user on a fresh copy of the world: predicted switch to real at the same sweep, no empty spell.
+
+Kept here when docs/ADVANCED.md was trimmed to what admins and players need (2026-11-24): predictions cover surface ore only. The muddy scrap piles inside Sunken Crypts are not predicted: which rooms a crypt gets, and so how many piles, depends on the way the game happens to turn the crypt when it is built, which the seed doesn't decide. Real crypt scrap is drawn in the Classic style only, as a clump of dots (often 15-20) at the crypt: the interior is built high above the crypt, so a player inside moves among them on the map, and they go as they are mined (at the next sweep). The Shapes style leaves it out: shapes are for spotting ore on the ground, and a crypt is found by its marker. A zone a player generates keeps its predictions until Munin's sweep has its real objects (a few minutes at most: the player's game sends them, and the sweep runs every sweep_interval).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

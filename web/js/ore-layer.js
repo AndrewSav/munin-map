@@ -41,7 +41,7 @@ const write = (k, v) => { try { localStorage.setItem(k, v); } catch { /* this vi
 let style = read(KEY_STYLE, 'classic') === 'shapes' ? 'shapes' : 'classic';
 let includePredicted = read(KEY_PREDICTED, '1') === '1';
 
-let drawReal = false, predictOn = false, serverMode = false;
+let drawReal = false, predictOn = false, serverMode = false, predictMode = '';
 let extract = null;                          // data/ore-extract.json (predict_ore = server)
 let real = null, predicted = null;           // the last responses
 let realIndex = new Map(), insideIndex = new Map(), predIndex = new Map();
@@ -72,7 +72,13 @@ async function fetchJson(url, have, apply) {
   finally { busy[url] = false; }
 }
 const loadReal = () => drawReal && fetchJson('data/ore.json', real, (d) => { real = d; realIndex = indexOf(d.d || []); insideIndex = indexOf(d.i || []); });
-const loadPredicted = () => predictOn && fetchJson('data/predicted-ore.json', predicted, (d) => { predicted = d; predIndex = indexOf(d.d || []); note(); refreshLine(); });
+const loadPredicted = () => predictOn && fetchJson('data/predicted-ore.json', predicted, (d) => {
+  predicted = d; predIndex = indexOf(d.d || []);
+  // the mode as the server has it now: the page outlives server restarts, and the config it read at load
+  // may be from before the setting changed
+  if (d.mode) { predictMode = d.mode; const was = serverMode; serverMode = d.mode === 'server'; if (serverMode && !was) pollExtract(); if (!serverMode) { clearTimeout(pollTimer); extract = null; } }
+  note(); refreshLine();
+});
 const loadAll = () => { loadReal(); loadPredicted(); };
 on('world', loadAll);
 on('reconnected', loadAll);
@@ -235,6 +241,7 @@ function restyleChecklist(list) {
 export function oreRows(app, groupRow, icon, world) {
   if (!app || !app.map || !app.gl) return [];
   predictOn = !!(app.config && app.config.predict_ore);
+  predictMode = predictOn ? String(app.config.predict_ore) : '';   // off: the setting isn't sent
   serverMode = predictOn && app.config.predict_ore === 'server';
   if (serverMode) pollExtract();
   drawReal = true;
@@ -286,35 +293,52 @@ export function predictedOreLine(section) {
 const dur = (s) => (s >= 3600 ? `${Math.floor(s / 3600)} h ${Math.floor((s % 3600) / 60)} min` : s >= 60 ? `${Math.round(s / 60)} min` : 'under a minute');
 
 function rowsHtml() {
-  const row = (k, v, title) => `<dt>${k}</dt><dd${title ? ` title="${escape(title)}"` : ''}>${v}</dd>`;
+  const row = (k, v) => `<dt>${k}</dt><dd>${v}</dd>`;
   const notes = [];
   const ok = predicted.status === 'ok';
   const x = serverMode && extract && extract.on ? extract : null;
+  const ip = predicted.inplace || null;   // predict_ore = in-place (TASK-4.6)
+  const ipFailed = ip && /^failed/.test(ip.state || '');
+  const progress = (done, total) => `${(done || 0).toLocaleString()} of ${total.toLocaleString()} (${Math.floor((100 * (done || 0)) / total)}%)`;
   let h = '';
   if (predicted.game) h += row('Server version', escape(predicted.game));
   h += row('Predicted ore', ok ? `${(predicted.total || 0).toLocaleString()} deposits` : 'none');
+  if (predictMode) h += row('Prediction mode', escape(predictMode));
   if (ok && predicted.mismatch) {
     h += row('Prediction version', escape(predicted.madeFor || '?'));
     notes.push('Predicted ore version differs, locations may be wrong.');
   }
-  if (!ok && !x) notes.push(escape(predicted.status || 'not loaded'));
+  // why there are no predicted deposits, in words; not while server or in-place mode is making the
+  // prediction (its row says so)
+  if (!ok && !(x && x.state !== 'failed') && !(ip && !ipFailed)) {
+    const st = predicted.status || '';
+    notes.push(st === 'no file' || !st ? 'No prediction file found.' : `${escape(st.charAt(0).toUpperCase() + st.slice(1))}.`);
+  }
+  // the update rows only while an update is in progress
+  if (ip) {
+    if (ip.state === 'running' && ip.total) h += row('Prediction update', progress(ip.done, ip.total));
+    else if (ip.state && ip.state.startsWith('waiting')) h += row('Prediction update', 'waiting for the world');
+    if (ipFailed) notes.push(`Prediction ${escape(ip.state)}.`);
+    if (ip.checked && predicted.game && ip.checked !== predicted.game) {
+      h += row('Verified on', escape(ip.checked));
+      notes.push('Predicted ore uses placement rules verified on a different version, locations may be wrong.');
+    }
+  }
   if (x) {
     switch (x.state) {
       case 'running':
         if (x.total) {
-          const pct = Math.floor((100 * x.done) / x.total);
-          h += row('Prediction update', `${pct}%`, `${x.done.toLocaleString()} of ${x.total.toLocaleString()} zones (the game's 64 m squares of the world)`);
+          h += row('Prediction update', progress(x.done, x.total));
           if (x.secondsLeft >= 0) h += row('Update ETA', `${dur(x.secondsLeft)} left`);
         } else h += row('Prediction update', 'starting');
         break;
       case 'starting': h += row('Prediction update', x.resumed ? 'resuming' : 'starting'); break;
       case 'loading': h += row('Prediction update', 'loading the world'); break;
-      case 'waiting': h += row('Prediction update', 'waiting', x.reason ? `waiting for ${x.reason}` : ''); break;
+      case 'waiting': h += row('Prediction update', x.reason ? `waiting for ${escape(x.reason)}` : 'waiting'); break;
       case 'failed':
-        h += row('Prediction update', 'failed');
         notes.push(`Prediction update failed: ${escape(x.reason || 'unknown reason')}. It is tried again when the server restarts.`);
         break;
-      default: break;   // done, current: the rows above say it
+      default: break;   // done, current: no update rows
     }
   }
   if (notes.length) h += `<div style="grid-column:1/-1;font-size:12px;line-height:1.35;color:var(--muted)">${notes.join(' ')}</div>`;

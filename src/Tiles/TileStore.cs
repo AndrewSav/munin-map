@@ -612,6 +612,7 @@ namespace MuninMap.Tiles
         {
             etag = null;
             if (!TileMath.Valid(zoom, x, y)) return null;
+            Patches.ViewedZones.Tile(zoom, x, y);   // patches: TASK-4.6
             long key = TileMath.Key(zoom, x, y);
             bool height = layer == "height", vegL = layer == "veg", terraL = layer == "terra";
             if ((vegL || terraL) && zoom < 5) return null;   // no overlay at overview zooms
