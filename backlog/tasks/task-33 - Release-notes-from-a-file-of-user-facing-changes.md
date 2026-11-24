@@ -1,11 +1,11 @@
 ---
 id: TASK-33
 title: Release notes from a file of user-facing changes
-status: In Progress
+status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-24T06:32:24Z'
-updated_date: '2026-11-24T06:36:47Z'
+updated_date: '2026-11-24T06:50:19Z'
 labels:
   - ci
 dependencies: []
@@ -27,7 +27,7 @@ Ref: decision-1 (release tags), TASK-6 (the release workflow).
 <!-- AC:BEGIN -->
 - [x] #1 patches-tools/release-notes.md exists, with its format and upkeep described at the top, and lines for the user-facing changes made since the last release
 - [x] #2 A release's notes are: 'Munin Map <version> with this fork's changes (see PATCHES.md).' with PATCHES.md linked, then the file's lines, each with its task ID linked to the task's file; links point at the release's tag
-- [ ] #3 The publish step builds the notes from the file at the tagged commit, for both Run workflow and a hand-pushed tag
+- [x] #3 The publish step builds the notes from the file at the tagged commit, for both Run workflow and a hand-pushed tag
 - [x] #4 A release fails, before anything is tagged or published, when the file is the same as at the previous patches-* tag
 - [x] #5 No upstream files change
 - [x] #6 A release on a new upstream version fails unless the file has the line '- Updated to Munin Map X.Y.Z'; lines without a task are published as they are
@@ -35,7 +35,7 @@ Ref: decision-1 (release tags), TASK-6 (the release workflow).
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
+- [x] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
 
 ## Implementation Plan
@@ -53,4 +53,12 @@ Ref: decision-1 (release tags), TASK-6 (the release workflow).
 Tested in a throwaway clone: next made patches-3.4.0-8 with new lines and refused a second release with nothing new; check accepted the tag; notes rendered the header and three linked lines (and the header only at an old tag without the file); a %20-encoded task link returned 200 on GitHub. AC 3 (the publish step in CI) is checked at the first real release.
 
 Release on a new upstream version (side check raised by a review): needs '- Updated to Munin Map X.Y.Z', added after the rebase. Tested in a throwaway clone with the manifest bumped to 3.5.0: refused without the line, released with it; the line is published as is.
+
+First real release, patches-3.4.0-8 (Run workflow): published with the header line and the three lines, PATCHES.md and task links resolving at the tag.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Release notes now come from patches-tools/release-notes.md, a hand-kept list of user-facing changes (one line per task or subtask, plus 'Updated to Munin Map X.Y.Z' after a rebase onto a new upstream version). release-tag.sh builds them at the release's tag: the header line with PATCHES.md linked, then the lines with their tasks linked. A release fails before tagging when the list has nothing new since the previous release, or when it moves to a new upstream version without the Updated line. The upkeep rule is in CLAUDE.md. Verified in a throwaway clone (all refusal and release cases) and by the first real release, patches-3.4.0-8.
+<!-- SECTION:FINAL_SUMMARY:END -->
