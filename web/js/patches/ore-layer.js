@@ -132,6 +132,20 @@ function drawOne(ctx, k, px, py, ppm, isPredicted) {
 class OreLayer extends L.GridLayer {
   constructor(pane) { super({ tileSize: TILE, updateWhenIdle: false, keepBuffer: 2, className: 'fork-ore-tile', pane }); }
 
+  // The page's glide (smoothzoom.js glideTo, a marker clicked in a list) moves the view by moving the
+  // pixel origin, not the map pane. A GridLayer places its tiles again only on 'zoom', so a glide at
+  // one zoom left the ore where it was. Placed again on every 'move' too (TASK-35).
+  // (the same function every time: Leaflet unbinds what getEvents returns when the layer is removed)
+  getEvents() {
+    const events = super.getEvents(), onMove = events.move;
+    this._placeOnMove = this._placeOnMove || function (e) {
+      if (this._map) this._setZoomTransforms(this._map.getCenter(), this._map.getZoom());
+      if (onMove) onMove.call(this, e);
+    };
+    events.move = this._placeOnMove;
+    return events;
+  }
+
   // draw every tile again where it stands (Leaflet's redraw() rebuilds them, which blinks)
   refresh() {
     const dpr = Math.min(devicePixelRatio || 1, 3);
