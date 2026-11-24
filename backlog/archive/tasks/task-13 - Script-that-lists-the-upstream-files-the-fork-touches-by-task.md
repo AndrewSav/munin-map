@@ -4,6 +4,7 @@ title: Script that lists the upstream files the fork touches, by task
 status: To Do
 assignee: []
 created_date: '2026-11-19T10:14:00Z'
+updated_date: '2026-11-24T06:42:47Z'
 labels:
   - build
   - tooling
@@ -33,3 +34,9 @@ A small script in `patches-tools/` should list every upstream file the fork chan
 - [ ] #5 It changes nothing: read-only on the repo and the backlog
 - [ ] #6 The local test README or a short README in `patches-tools/` says when to run it (before a rebase, and before moving a task to Done)
 <!-- AC:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Archived 2026-11-19: not needed. Git already shows what the fork touches: the two commands now in CLAUDE.md (git diff --stat against the upstream release, and git log on a file for the tasks behind it). The one thing the script added, a cross-check against a hand-kept modified-files list in each task, was dropped along with that list.
+<!-- SECTION:NOTES:END -->

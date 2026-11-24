@@ -19,6 +19,15 @@ change fits the codebase:
 - Keep `PATCHES.md` (the register of product changes from upstream) up to date: every product
   change gets an entry before its task is Done, and the entry changes when the change does.
   Tooling (local test server, CI, backlog) stays out of it.
+- When a task or subtask goes Done, decide whether it is user-facing (changes what a server admin or
+  a map visitor sees or can do). If it is, add its line to `patches-tools/release-notes.md`: first
+  remove the lines already released (those in the file at the latest `patches-*` tag, after
+  `git fetch --tags`), then add `- TASK-n: <line>`, its PATCHES.md heading where that fits. After a
+  rebase onto a new upstream version, add `- Updated to Munin Map X.Y.Z` the same way. Internal and
+  tooling tasks get no line.
+- Before archiving a backlog task or draft, append its reason to its notes
+  (`--append-notes "Archived <date>: <reason>"`, naming the task or commit that made it unnecessary);
+  archived items are read-only.
 - After resolving a rebase conflict, reshape our code so that spot is less likely to conflict
   again.
 

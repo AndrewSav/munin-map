@@ -6,7 +6,7 @@ title: >-
 status: Draft
 assignee: []
 created_date: '2026-11-23T16:17:52Z'
-updated_date: '2026-11-24T00:36:54Z'
+updated_date: '2026-11-24T06:43:01Z'
 labels:
   - plugin
   - web
@@ -31,3 +31,9 @@ Ref: TASK-4.5 (ore-extract supervisor in ore-extract/core, Patches/ServerExtract
 <!-- DOD:BEGIN -->
 - [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Archived 2026-11-24: no longer applies. TASK-4.7 removed predict_ore = server (and the file mode), keeping only in-place prediction, which already does this: ViewedZones puts the zones players are looking at first.
+<!-- SECTION:NOTES:END -->
