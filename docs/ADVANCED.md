@@ -422,8 +422,9 @@ game data. There is nothing to set up and no extra process:
   priority, and about 100 MB of memory.
 - Zones a viewer zooms into are worked out first. A restart resumes; after a game update it works the
   zones out again by itself.
-- It is a little less exact than an extract near locations: which way a location faces is often not
-  decided by the seed, so ore close to some of them can be wrong.
+- Near locations it is a little less exact than an extract. Which way a location faces is often not
+  decided by the seed, so both can be wrong there, but for some locations in-place leaves the
+  location's parts out rather than placing them.
 - Its rules are verified on Valheim 1.0.21.
 
 ### How the methods compare
