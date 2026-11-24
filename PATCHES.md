@@ -213,8 +213,8 @@ stands):
 - **`in-place`:** Munin works the deposits out itself, inside the game server, by re-running the
   game's placement rules for each zone not generated yet, with the game's own data (what is placed
   where, prefabs and their colliders, the planned locations): no extract and no second process. A
-  whole world takes about 25 seconds on two lowest-priority background threads (plus about 25 seconds
-  to read the location prefabs on a first run, about 100 MB of memory); zones a viewer zooms into go
+  whole world usually takes under a minute on two lowest-priority background threads (longer on a slow
+  or busy server; reading the location prefabs it needs costs about 100 MB of memory); zones a viewer zooms into go
   first; a restart resumes; after a game update it works the zones out again by itself. 99.2% of
   deposits matched on two worlds (an extract: 99.3%): a location's own parts
   block ore near it, and a location the game turns at random can't be placed. Its rules are copied

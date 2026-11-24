@@ -60,7 +60,7 @@ namespace MuninMap.Patches
                 + "off: none. file: from an extract made with ore-extract and copied into this world's Munin data folder as "
                 + FileName + "; server: Munin makes that extract itself, in the background on this server "
                 + "(half an hour to an hour and a half, up to 3.5 GB of memory, progress in the page's Server details); "
-                + "in-place: Munin works the deposits out itself from the game's placement rules, in seconds, with no extract and no extra process "
+                + "in-place: Munin works the deposits out itself from the game's placement rules, usually in under a minute, with no extract and no extra process "
                 + "(a little less exact than an extract near locations; see docs/ADVANCED.md, Predicted ore).",
                 new AcceptableValueList<string>("off", "file", "server", "in-place"))).Value;
             if (Mode != "file" && Mode != "server" && Mode != "in-place") Mode = "off";

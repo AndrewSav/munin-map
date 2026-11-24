@@ -96,7 +96,7 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | User | `require_auth` | false | only claimed players may pin, ping or edit bases from the page, or ask for a sweep by API; see [Player access](#player-access) |
 | Sweep | `enable_sweep_api` | true | let anyone ask for a world sweep now (`POST /api/sweep`, `/structures/refresh`). Off: only with the admin token |
 | Server | `show_seed` | false | show the world's seed in the stats panel's Server details, for seed-map websites. The seed reveals the whole world there (a spoiler); off, it is not sent at all. Players on the server can get it anyway: the game's `printseeds` console command (F5, with the `-console` launch option) prints it |
-| Server | `predict_ore` | off | show predicted ore deposits in zones nobody has visited yet (needs `reveal_all`). `off`: none. `file`: from an extract made with ore-extract. `server`: Munin makes that extract itself, in the background on the server. `in-place`: Munin works the deposits out itself from the game's placement rules, in seconds, with no extract; see [Predicted ore](#predicted-ore) |
+| Server | `predict_ore` | off | show predicted ore deposits in zones nobody has visited yet (needs `reveal_all`). `off`: none. `file`: from an extract made with ore-extract. `server`: Munin makes that extract itself, in the background on the server. `in-place`: Munin works the deposits out itself from the game's placement rules, usually in under a minute, with no extract; see [Predicted ore](#predicted-ore) |
 
 ## Your own markers
 
@@ -458,9 +458,9 @@ each zone nobody has generated yet. There is no extract, no second game server a
   their colliders, the planned locations and the location prefabs. At start it checks its copies
   of the game's random numbers and terrain against the game's own code, and doesn't run if they
   differ.
-- A whole world takes about 25 seconds on two background threads at the lowest CPU priority; the
-  game's own thread only collects the results. The first run after a start also reads the location
-  prefabs it needs (about 25 seconds in the background, as the game loads them; about 100 MB of
+- A whole world usually takes under a minute (longer on a slow or busy server), on two background
+  threads at the lowest CPU priority; the game's own thread only collects the results. Meanwhile it
+  reads the location prefabs it needs in the background, as the game loads them (about 100 MB of
   memory that stays until the server stops). A restart with a finished prediction does neither.
 - Zones a viewer zooms into are worked out first, with their locations' prefabs.
 - The deposits show as they are worked out, without a restart. A restart resumes where it stopped.
@@ -493,7 +493,7 @@ are followed; mods that change how the game places vegetation are not.
 | | `file` | `server` | `in-place` |
 |---|---|---|---|
 | Who runs it | the admin, by hand, on any machine | Munin, on the server, by itself | Munin, on the server, by itself |
-| Time | minutes for a whole world with the fast mode on a desktop (several game processes); hours with `--slow` (one low-priority process) | about an hour and a half for a whole world (one low-priority process on one core) | about 25 seconds for a whole world (two low-priority threads in the game server), plus about 25 seconds to read the location prefabs on a first run |
+| Time | minutes for a whole world with the fast mode on a desktop (several game processes); hours with `--slow` (one low-priority process) | about an hour and a half for a whole world (one low-priority process on one core) | usually under a minute for a whole world (two low-priority threads in the game server; longer on a slow or busy server) |
 | Memory | 2.6-3.4 GB per game process at its peak for a whole world; the fast mode runs as many as fit, and the tool stops itself before memory runs out | 1.5-3.5 GB on the server while it runs; it needs 4.5 GB free to start | about 100 MB in the game server, from the location prefabs, when zones are left to work out |
 | Accuracy | the game's own generation: in tests about 99% of deposits matched the real ones (copper, tin and muddy scrap almost all; obsidian and silver 97-98%). The misses are the details the seed doesn't decide | the same: it is the same extract | 99.2% in the same test (99.3% for the extract), and 99.2% against an extract on a second world; a little less exact near locations (see above) |
 | After a game update | run it again by hand; until then the warning | made again by itself | worked out again by itself; a note until a Munin update verifies the new version |
