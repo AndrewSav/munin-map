@@ -1,0 +1,785 @@
+// patches: TASK-4 (TASK-4.6). In-place ore prediction (fork only, see PATCHES.md).
+//
+// With predict_ore = in-place and reveal_all on, Munin works out the ore deposits of zones the game
+// has not generated yet by re-running the game's own vegetation pass (ZoneSystem.PlaceVegetation,
+// backlog doc-2) with the game's own code where it can: UnityEngine.Random seeded the same way, the
+// world generator, and HeightmapBuilder's terrain for the zone (built on a worker thread from our own
+// request, so the game's shared queue of finished heightmaps is never touched). Nothing is spawned in
+// the world and no zone is generated: earlier objects that can block a later spot get collider-only
+// copies in a private physics scene, which is raycast the way the game's IsBlocked raycasts the real
+// scene. The result goes to its own file (FileName), which PredictedOre shows like an extract, so an
+// extract made by file or server mode is never overwritten.
+//
+// Runs on the game thread in slices (a budget per frame), saving and restoring Unity's random state
+// around its own draws, as PlaceVegetation does. Resumes after a restart from the file's header.
+using System;
+using System.Collections;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using UnityEngine;
+using UnityEngine.SceneManagement;
+
+namespace MuninMap.Patches
+{
+    internal static class InPlaceOre
+    {
+        public const string FileName = "predicted-ore-inplace.csv";
+        private const int FormatVersion = 4;   // 2: Awake draws; 3: progress as a set of done zones; 4: measuring run
+
+        // the ore entries' prefabs (doc-2: the ores that are vegetation)
+        private static readonly HashSet<string> OrePrefabs = new HashSet<string> {
+            "silvervein", "mudpile_beacon", "rock4_copper", "MineRock_Tin", "MineRock_Obsidian" };
+
+        // testing knobs (environment, not settings): MUNIN_INPLACE_ALL=1 predicts generated zones too (to
+        // compare with a generated copy), MUNIN_INPLACE_BLOCK=none|physics, MUNIN_INPLACE_BUDGET_MS (game-thread
+        // milliseconds a frame), MUNIN_INPLACE_THREADS (terrain threads)
+        private static bool allZones;
+        private static string blockMode = "physics";
+        private static double budgetMs = 2.0;
+        private static int threads = 2;
+
+        public static bool On => PredictedOre.Mode == "in-place" && MuninConfig.REVEAL_ALL;
+
+        private static string worldDir;
+        private static int generation;   // bumped per world, so an old run stops
+        private static string status = "waiting for the world to load";
+        private static int zonesDone, zonesTotal;
+        public static string Status => status;
+        public static int ZonesDone => zonesDone;
+        public static int ZonesTotal => zonesTotal;
+
+        // per world, from PredictedOre.Load (main thread)
+        public static void Load(string worldDataPath)
+        {
+            worldDir = worldDataPath;
+            generation++;
+            zonesDone = 0; zonesTotal = 0;
+            status = "waiting for the world to load";
+            if (!On) return;
+            allZones = Environment.GetEnvironmentVariable("MUNIN_INPLACE_ALL") == "1";
+            string b = Environment.GetEnvironmentVariable("MUNIN_INPLACE_BLOCK");
+            if (b == "none" || b == "physics") blockMode = b;
+            if (double.TryParse(Environment.GetEnvironmentVariable("MUNIN_INPLACE_BUDGET_MS"), NumberStyles.Float, CultureInfo.InvariantCulture, out double ms) && ms > 0) budgetMs = ms;
+            if (int.TryParse(Environment.GetEnvironmentVariable("MUNIN_INPLACE_THREADS"), out int th) && th > 0) threads = th;
+            StaticCoroutine.Start(Run(generation));
+        }
+
+        // ---- the game's data, read once per world (main thread) ----
+
+        private class Entry
+        {
+            public int index;
+            public ZoneSystem.ZoneVegetation veg;
+            public int hash;            // prefab name's stable hash, for the seed
+            public bool ore;
+            public string prefab;
+            public Template shadow;     // collider-only copy for blocking (null: nothing that blocks)
+            public int awakeDraws;      // random draws its components' Awake makes when the game instantiates it
+            public int lodFades;        // LodFadeInOut with a LODGroup: one more draw when a camera is over 20 m away
+        }
+
+        private class Template
+        {
+            public GameObject root;     // inactive, in our scene
+            public Vector3 prefabScale;
+            public readonly Stack<GameObject> pool = new Stack<GameObject>();
+        }
+
+        private static List<Entry> entries;
+        private static Heightmap.Biome oreBiomes;
+        private static int hmWidth;
+        private static float hmScale;
+        private static Scene scene;
+        private static PhysicsScene physics;
+        private static GameObject sceneRoot;
+        private static int blockMask, staticSolidMask;
+
+        private static void Prepare()
+        {
+            var zs = ZoneSystem.instance;
+            var hm = zs.m_zonePrefab.GetComponentInChildren<Heightmap>();
+            hmWidth = hm.m_width; hmScale = hm.m_scale;
+            blockMask = zs.m_blockRayMask;
+            staticSolidMask = LayerMask.GetMask("static_solid");
+            if (!scene.IsValid())
+            {
+                scene = SceneManager.CreateScene("MuninInPlaceOre", new CreateSceneParameters(LocalPhysicsMode.Physics3D));
+                physics = scene.GetPhysicsScene();
+                sceneRoot = new GameObject("MuninInPlaceOre");
+                SceneManager.MoveGameObjectToScene(sceneRoot, scene);
+            }
+            var templates = new Dictionary<string, Template>();
+            entries = new List<Entry>();
+            oreBiomes = Heightmap.Biome.None;
+            int i = 0;
+            foreach (var veg in zs.m_vegetation)
+            {
+                i++;
+                if (!veg.m_enable || veg.m_prefab == null) continue;
+                var e = new Entry { index = i, veg = veg, prefab = veg.m_prefab.name, hash = veg.m_prefab.name.GetStableHashCode() };
+                e.ore = OrePrefabs.Contains(e.prefab);
+                if (e.ore) oreBiomes |= veg.m_biome;
+                AwakeDraws(veg.m_prefab, out e.awakeDraws, out e.lodFades);
+                if (blockMode == "physics")
+                {
+                    if (!templates.TryGetValue(e.prefab, out var t)) templates[e.prefab] = t = MakeTemplate(veg.m_prefab);
+                    e.shadow = t;
+                }
+                entries.Add(e);
+            }
+            int shadows = templates.Values.Count(t => t != null);
+            // measuring: can the colliders' meshes be read on the CPU (needed for shape tests off the game thread)?
+            int meshes = 0, unreadable = 0;
+            foreach (var t in templates.Values) if (t != null) foreach (var mc in t.root.GetComponentsInChildren<MeshCollider>(true)) { meshes++; if (!mc.sharedMesh.isReadable) unreadable++; }
+            ZLog.Log($"MuninMap: in-place ore: {meshes} mesh colliders in the shadows, {unreadable} of them not readable on the CPU");
+            var camera = Utils.GetMainCamera();
+            ZLog.Log("MuninMap: in-place ore: main camera " + (camera != null ? "at " + camera.transform.position : "none")
+                + "; ore entries: " + string.Join(", ", entries.Where(x => x.ore).Select(x => $"#{x.index} {x.prefab} (awake draws {x.awakeDraws}+{x.lodFades} lod)")));
+            ZLog.Log($"MuninMap: in-place ore: {entries.Count} vegetation entries, {entries.Count(e => e.ore)} ore entries, "
+                + $"{shadows} prefabs with colliders that can block (blocking: {blockMode})");
+        }
+
+        // The game instantiates every accepted object inside the placement loop, and some components draw
+        // from Unity's random state in Awake (which runs during Instantiate, for active objects, enabled
+        // or not), shifting every later candidate of that entry. Counted from the loaded prefab; the
+        // conditions are those in the components' Awake (1.0.21), with the ZDO present as in Ghost mode.
+        private static void AwakeDraws(GameObject prefab, out int fixedDraws, out int lodFades)
+        {
+            fixedDraws = 0; lodFades = 0;
+            if (!prefab.activeSelf) return;
+            foreach (var b in prefab.GetComponentsInChildren<MonoBehaviour>(false))
+            {
+                switch (b)
+                {
+                    case LodFadeInOut l: if (l.GetComponent<LODGroup>() != null) lodFades++; break;
+                    case MineRock5 _: fixedDraws++; break;
+                    case Pickable pk: if (pk.m_respawnTimeMinutes > 0f) fixedDraws++; break;
+                    case ResourceRoot _: fixedDraws++; break;
+                    case ZSFX _: fixedDraws++; break;
+                    case Floating _: fixedDraws++; break;
+                }
+            }
+        }
+
+        // a copy of the prefab's enabled colliders on the layers the block check (or static-solid snapping)
+        // sees, with their poses relative to the prefab's root; null when it has none
+        private static Template MakeTemplate(GameObject prefab)
+        {
+            var root = new GameObject("shadow_" + prefab.name);
+            root.SetActive(false);
+            root.transform.SetParent(sceneRoot.transform, false);
+            var pt = prefab.transform;
+            Vector3 rs = pt.lossyScale;
+            int n = 0;
+            foreach (var c in prefab.GetComponentsInChildren<Collider>())
+            {
+                if (!c.enabled) continue;
+                int bit = 1 << c.gameObject.layer;
+                if ((bit & (blockMask | staticSolidMask)) == 0) continue;
+                var go = new GameObject(c.name) { layer = c.gameObject.layer };
+                go.transform.SetParent(root.transform, false);
+                var ct = c.transform;
+                // in the root's own (scaled) space: the instance's root gets the placed scale
+                go.transform.localPosition = pt.InverseTransformPoint(ct.position);
+                go.transform.localRotation = Quaternion.Inverse(pt.rotation) * ct.rotation;
+                go.transform.localScale = Div(ct.lossyScale, rs);
+                if (!Copy(c, go)) { UnityEngine.Object.Destroy(go); continue; }
+                n++;
+            }
+            if (n == 0) { UnityEngine.Object.Destroy(root); return null; }
+            return new Template { root = root, prefabScale = pt.localScale };
+        }
+
+        private static Vector3 Div(Vector3 a, Vector3 b) =>
+            new Vector3(b.x != 0 ? a.x / b.x : a.x, b.y != 0 ? a.y / b.y : a.y, b.z != 0 ? a.z / b.z : a.z);
+
+        private static bool Copy(Collider c, GameObject go)
+        {
+            switch (c)
+            {
+                case BoxCollider b: { var x = go.AddComponent<BoxCollider>(); x.center = b.center; x.size = b.size; x.isTrigger = b.isTrigger; return true; }
+                case SphereCollider s: { var x = go.AddComponent<SphereCollider>(); x.center = s.center; x.radius = s.radius; x.isTrigger = s.isTrigger; return true; }
+                case CapsuleCollider k: { var x = go.AddComponent<CapsuleCollider>(); x.center = k.center; x.radius = k.radius; x.height = k.height; x.direction = k.direction; x.isTrigger = k.isTrigger; return true; }
+                case MeshCollider m:
+                    {
+                        if (m.sharedMesh == null) return false;
+                        var x = go.AddComponent<MeshCollider>(); x.convex = m.convex; x.isTrigger = m.isTrigger && m.convex; x.sharedMesh = m.sharedMesh; return true;
+                    }
+                default: return false;
+            }
+        }
+
+        // ---- zones ----
+
+        private class ZoneTerrain
+        {
+            public Vector2s zone;
+            public Vector3 center;
+            public HeightmapBuilder.HMBuildData data;   // null: no ore biome in the zone (nothing to do)
+            public bool[] touched;      // measuring: the vertices placement read
+        }
+
+        // Zones nearest the centre first. The order is fixed by the world, so a restart resumes by count.
+        private static List<Vector2s> ZoneOrder()
+        {
+            const float radius = 10000f + 64f;
+            int r = Mathf.CeilToInt(radius / 64f);
+            var list = new List<Vector2s>();
+            for (int y = -r; y <= r; y++)
+                for (int x = -r; x <= r; x++)
+                    if (new Vector2(x * 64f, y * 64f).magnitude <= radius) list.Add(new Vector2s(x, y));
+            list.Sort((a, b) => { int d = (a.x * a.x + a.y * a.y).CompareTo(b.x * b.x + b.y * b.y); if (d != 0) return d; d = a.y.CompareTo(b.y); return d != 0 ? d : a.x.CompareTo(b.x); });
+            return list;
+        }
+
+        // worker thread: the zone's terrain as the game builds it (HeightmapBuilder.Build, the same code
+        // the game's builder thread runs), only for zones that have an ore biome at a corner
+        private static ZoneTerrain BuildTerrain(Vector2s z)
+        {
+            var wg = WorldGenerator.instance;
+            Vector3 c = ZoneSystem.GetZonePos(z);
+            var t = new ZoneTerrain { zone = z, center = c };
+            float h = hmWidth * hmScale * 0.5f;
+            Heightmap.Biome corners = wg.GetBiome(c.x - h, c.z - h) | wg.GetBiome(c.x + h, c.z - h) | wg.GetBiome(c.x - h, c.z + h) | wg.GetBiome(c.x + h, c.z + h);
+            if ((corners & oreBiomes) == 0) return t;
+            var data = new HeightmapBuilder.HMBuildData(c, hmWidth, hmScale, false, wg);
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            HeightmapBuilder.instance.Build(data);
+            lock (statLock) { buildMs += sw.Elapsed.TotalMilliseconds; landZones++; }
+            t.data = data;
+            return t;
+        }
+
+        private static readonly object statLock = new object();
+        private static double buildMs;   // the terrain threads' time building terrain, and for how many zones
+        private static int landZones;
+
+        private struct Found { public string prefab; public Vector3 p; public Vector2s zone; }
+
+        private static IEnumerator Run(int gen)
+        {
+            while (gen == generation && !Ready()) yield return new WaitForSecondsRealtime(2f);
+            if (gen != generation) yield break;
+            try { Prepare(); }
+            catch (Exception e) { status = "failed (" + e.Message + ")"; ZLog.LogWarning("MuninMap: in-place ore: " + e); yield break; }
+
+            string seed = WorldGenerator.instance.m_world.m_seedName;
+            string game = global::Version.CurrentVersion.ToString();
+            string path = Path.Combine(worldDir, FileName);
+            var order = ZoneOrder();
+            zonesTotal = order.Count;
+            var found = new List<Found>();
+            var done = new bool[order.Count];
+            Resume(path, seed, game, found, done);
+            zonesDone = done.Count(d => d);
+            var generated = allZones ? new HashSet<Vector2s>() : new HashSet<Vector2s>(ZoneSystem.instance.m_generatedZones);
+            ZLog.Log($"MuninMap: in-place ore: {(zonesDone > 0 ? $"resuming with {zonesDone} of {order.Count} zones done" : $"working out {order.Count} zones")}"
+                + (allZones ? " (MUNIN_INPLACE_ALL: generated zones too)" : $" ({generated.Count} generated, skipped)")
+                + $", terrain on {threads} thread(s), {budgetMs:F1} ms a frame");
+            status = "running";
+
+            // Terrain is built ahead on a few lowest-priority threads, each taking the next zone from the
+            // queue; the game thread places in whatever order zones arrive (progress is the set of done zones)
+            var queue = new ConcurrentQueue<int>();
+            for (int k = 0; k < order.Count; k++) if (!done[k]) queue.Enqueue(k);
+            var ready = new BlockingCollection<(int, ZoneTerrain)>(4 * threads);
+            var stop = new CancellationTokenSource();
+            buildMs = 0; landZones = 0;
+            int running = threads;
+            for (int w = 0; w < threads; w++)
+            {
+                new Thread(() =>
+                {
+                    try
+                    {
+                        while (!stop.IsCancellationRequested && queue.TryDequeue(out int k))
+                        {
+                            var z = order[k];
+                            var t = generated.Contains(z) ? new ZoneTerrain { zone = z } : BuildTerrain(z);
+                            ready.Add((k, t), stop.Token);
+                        }
+                    }
+                    catch (OperationCanceledException) { }
+                    catch (Exception e) { ZLog.LogWarning("MuninMap: in-place ore: terrain thread: " + e); }
+                    finally { if (Interlocked.Decrement(ref running) == 0) ready.CompleteAdding(); }
+                }) { IsBackground = true, Name = "MuninInPlaceOre " + w, Priority = System.Threading.ThreadPriority.Lowest }.Start();
+            }
+
+            var frame = new System.Diagnostics.Stopwatch();
+            var zoneSw = new System.Diagnostics.Stopwatch();
+            var runSw = System.Diagnostics.Stopwatch.StartNew();
+            double maxSlice = 0, maxZone = 0, workMs = 0;
+            float lastWrite = Time.realtimeSinceStartup, lastLog = lastWrite;
+            var zoneFound = new List<Found>();
+            var spawned = new List<(Template, GameObject)>();
+            bool failed = false, finished = false;
+            // the zone in progress: its index in the order, terrain, entries and the next entry
+            int cur = -1; ZoneTerrain ct = null; List<Entry> plan = null; int next = 0;
+            while (gen == generation && !failed && !finished)
+            {
+                // one frame: zones and entries until the budget is used; Unity's random state is the
+                // game's again before the frame ends
+                frame.Restart();
+                var state = UnityEngine.Random.state;
+                try
+                {
+                    while (frame.Elapsed.TotalMilliseconds < budgetMs)
+                    {
+                        if (cur < 0)
+                        {
+                            if (!ready.TryTake(out var item)) { finished = ready.IsCompleted; break; }
+                            cur = item.Item1; ct = item.Item2;
+                            bool work = ct.data != null && (allZones || !ZoneSystem.instance.IsZoneGenerated(ct.zone));
+                            plan = work ? Plan(ct) : null; next = 0;
+                            zoneFound.Clear();
+                            zoneSw.Restart();
+                        }
+                        if (plan != null && next < plan.Count)
+                        {
+                            // each entry reseeds, so a zone can stop between entries; only its shadows carry over
+                            PlaceEntry(plan[next], ct, zoneFound, spawned, next < plan.Count - 1);
+                            next++;
+                            continue;
+                        }
+                        // the zone is done
+                        Release(spawned);
+                        if (ct.touched != null) { int c = ct.touched.Count(b => b); touchedSum += c; touchedZones++; if (c > touchedMax) touchedMax = c; }
+                        double zms = zoneSw.Elapsed.TotalMilliseconds;
+                        if (plan != null && zms > maxZone) maxZone = zms;
+                        found.AddRange(zoneFound);
+                        done[cur] = true; zonesDone++;
+                        cur = -1; ct = null; plan = null;
+                    }
+                }
+                catch (Exception e) { ZLog.LogWarning($"MuninMap: in-place ore: zone {ct?.zone.x},{ct?.zone.y}: {e}"); failed = true; }
+                finally { UnityEngine.Random.state = state; }
+                double ms = frame.Elapsed.TotalMilliseconds;
+                workMs += ms;
+                if (ms > maxSlice) maxSlice = ms;
+                if (failed) { status = "failed (see the server log)"; break; }
+
+                float now = Time.realtimeSinceStartup;
+                if (now - lastLog >= 30f)
+                {
+                    lastLog = now;
+                    ZLog.Log($"MuninMap: in-place ore: {zonesDone}/{zonesTotal} zones, {found.Count} deposits, {runSw.Elapsed.TotalMinutes:F1} min, "
+                        + $"game thread {workMs / 1000:F1} s in all, longest frame's share {maxSlice:F2} ms, longest zone {maxZone:F1} ms, "
+                        + $"terrain {buildMs / 1000:F1} s for {landZones} zones");
+                    maxSlice = 0;
+                }
+                if (now - lastWrite >= 60f && (writing == null || writing.IsCompleted))
+                {
+                    lastWrite = now;
+                    var copy = found.ToArray(); var mask = (bool[])done.Clone(); int n = zonesDone;
+                    writing = System.Threading.Tasks.Task.Run(() => Write(path, seed, game, copy, mask, n, false));
+                }
+                if (!finished) yield return null;
+            }
+            stop.Cancel();
+            if (gen != generation || failed) yield break;
+            while (writing != null && !writing.IsCompleted) yield return null;
+            var all = found.ToArray(); var fin = (bool[])done.Clone(); int count = zonesDone; bool complete = zonesDone >= zonesTotal;
+            writing = System.Threading.Tasks.Task.Run(() => Write(path, seed, game, all, fin, count, complete));
+            while (!writing.IsCompleted) yield return null;
+            status = "done";
+            ZLog.Log($"MuninMap: in-place ore: done, {found.Count} deposits in {runSw.Elapsed.TotalMinutes:F1} min "
+                + $"(game thread {workMs / 1000:F1} s in all; terrain {buildMs / 1000:F1} s on {threads} thread(s) for {landZones} zones; vertices read: {(touchedZones > 0 ? touchedSum / touchedZones : 0)} per zone on average, {touchedMax} at most, of {(hmWidth + 1) * (hmWidth + 1)})");
+        }
+
+        private static bool Ready()
+        {
+            try { return ZoneSystem.instance != null && ZoneSystem.instance.LocationsGenerated && WorldGenerator.instance != null && HeightmapBuilder.instance != null; }
+            catch { return false; }
+        }
+
+        // the entries the zone needs, in the game's order: every ore entry for its biomes, and (with
+        // blocking) every earlier entry for its biomes whose objects can block, up to the last ore entry
+        private static List<Entry> Plan(ZoneTerrain t)
+        {
+            var cb = t.data.m_cornerBiomes;
+            bool Have(Heightmap.Biome b) => (cb[0].Biome & b) != 0 || (cb[1].Biome & b) != 0 || (cb[2].Biome & b) != 0 || (cb[3].Biome & b) != 0;
+            int last = -1;
+            for (int k = 0; k < entries.Count; k++) if (entries[k].ore && Have(entries[k].veg.m_biome)) last = k;
+            var plan = new List<Entry>();
+            for (int k = 0; k <= last; k++)
+            {
+                var e = entries[k];
+                if (!Have(e.veg.m_biome)) continue;
+                if (e.ore || e.shadow != null) plan.Add(e);
+            }
+            return plan;
+        }
+
+        // ---- one vegetation entry in one zone: ZoneSystem.PlaceVegetation's loop body ----
+
+        private static readonly List<float> surround = new List<float>();
+
+        private static void PlaceEntry(Entry e, ZoneTerrain t, List<Found> found, List<(Template, GameObject)> spawned, bool later)
+        {
+            var veg = e.veg;
+            var wg = WorldGenerator.instance;
+            Vector2s zoneID = t.zone;
+            Vector3 zoneCenterPos = t.center;
+            UnityEngine.Random.InitState(wg.GetSeed() + zoneID.x * 4271 + zoneID.y * 9187 + e.hash);
+            int count = 1;
+            if (veg.m_max < 1f) { if (UnityEngine.Random.value > veg.m_max) return; }
+            else count = UnityEngine.Random.Range((int)veg.m_min, (int)veg.m_max + 1);
+            float maxTiltCos = Mathf.Cos(Mathf.PI / 180f * veg.m_maxTilt);
+            float minTiltCos = Mathf.Cos(Mathf.PI / 180f * veg.m_minTilt);
+            float margin = 32f - veg.m_groupRadius;
+            surround.Clear();
+            int tries = veg.m_forcePlacement ? count * 50 : count;
+            int placed = 0;
+            bool spawn = e.shadow != null && later;   // a shadow only matters to entries after this one
+            for (int i = 0; i < tries; i++)
+            {
+                Vector3 vector = new Vector3(UnityEngine.Random.Range(zoneCenterPos.x - margin, zoneCenterPos.x + margin), 0f,
+                    UnityEngine.Random.Range(zoneCenterPos.z - margin, zoneCenterPos.z + margin));
+                BiomeSector sector = wg.GetBiomeSector(vector);
+                if ((veg.AltBiomeParent != null && !sector.AltBiomes.Any(a => a.m_name == veg.AltBiomeParent))
+                    || sector.AltBiomes.Any(a => a.m_blockVegetationNames.Contains(veg.m_name))) continue;
+                int groupSize = UnityEngine.Random.Range(veg.m_groupSizeMin, veg.m_groupSizeMax + 1);
+                bool any = false;
+                for (int g = 0; g < groupSize; g++)
+                {
+                    Vector3 p = g == 0 ? vector : RandomPointInRadius(vector, veg.m_groupRadius);
+                    float rotY = UnityEngine.Random.Range(0, 360);
+                    float scale = UnityEngine.Random.Range(veg.m_scaleMin, veg.m_scaleMax);
+                    float tiltX = UnityEngine.Random.Range(0f - veg.m_randTilt, veg.m_randTilt);
+                    float tiltZ = UnityEngine.Random.Range(0f - veg.m_randTilt, veg.m_randTilt);
+                    if (veg.m_blockCheck && IsBlocked(p)) continue;
+                    if (!Ground(t, p, out float gy, out Vector3 normal)) continue;   // the game's ray misses: biome None
+                    p.y = gy;
+                    Heightmap.Biome biome = GetBiome(t, p);
+                    Heightmap.BiomeArea area = BiomeArea(t);
+                    if ((veg.m_biome & biome) == 0 || (veg.m_biomeArea & area) == 0) continue;
+                    if (veg.m_snapToStaticSolid && StaticSolid(t, p, out float sh, out Vector3 sn)) { p.y = sh; normal = sn; }
+                    float alt = p.y - 30f;
+                    if (alt < veg.m_minAltitude || alt > veg.m_maxAltitude) continue;
+                    if (!veg.m_minVegetation.Equals(veg.m_maxVegetation))
+                    {
+                        float m = VegetationMask(t, p);
+                        if (m > veg.m_maxVegetation || m < veg.m_minVegetation) continue;
+                    }
+                    if (!veg.m_minOceanDepth.Equals(veg.m_maxOceanDepth))
+                    {
+                        float d = OceanDepth(t, p);
+                        if (d < veg.m_minOceanDepth || d > veg.m_maxOceanDepth) continue;
+                    }
+                    if (normal.y < maxTiltCos || normal.y > minTiltCos) continue;
+                    if (veg.m_terrainDeltaRadius > 0f)
+                    {
+                        float delta = TerrainDelta(t, p, veg.m_terrainDeltaRadius);
+                        if (delta > veg.m_maxTerrainDelta || delta < veg.m_minTerrainDelta) continue;
+                    }
+                    if (veg.m_minDistanceFromCenter > 0f || veg.m_maxDistanceFromCenter > 0f)
+                    {
+                        float dc = Utils.LengthXZ(p);
+                        if ((veg.m_minDistanceFromCenter > 0f && dc < veg.m_minDistanceFromCenter) || (veg.m_maxDistanceFromCenter > 0f && dc > veg.m_maxDistanceFromCenter)) continue;
+                    }
+                    if (veg.m_inForest)
+                    {
+                        float f = WorldGenerator.GetForestFactor(p);
+                        if (f < veg.m_forestTresholdMin || f > veg.m_forestTresholdMax) continue;
+                    }
+                    if (veg.m_surroundCheckVegetation)
+                    {
+                        float sum = 0f;
+                        for (int l = 0; l < veg.m_surroundCheckLayers; l++)
+                        {
+                            float dist = (float)(l + 1) / veg.m_surroundCheckLayers * veg.m_surroundCheckDistance;
+                            for (int s = 0; s < 6; s++)
+                            {
+                                float a = s / 6f * Mathf.PI * 2f;
+                                float vm = VegetationMask(t, p + new Vector3(Mathf.Sin(a) * dist, 0f, Mathf.Cos(a) * dist));
+                                float w = (1f - dist) / (veg.m_surroundCheckDistance * 2f);
+                                sum += vm * w;
+                            }
+                        }
+                        surround.Add(sum);
+                        if (surround.Count < 10) continue;
+                        float max = surround.Max(), avg = surround.Average();
+                        if (sum < avg + (max - avg) * veg.m_surroundBetterThanAverage) continue;
+                    }
+                    if (InsideClearArea(t.zone, p)) continue;
+                    if (veg.m_snapToWater) p.y = 30f;
+                    p.y += veg.m_groundOffset;
+                    Quaternion rot;
+                    if (veg.m_chanceToUseGroundTilt > 0f && UnityEngine.Random.value <= veg.m_chanceToUseGroundTilt)
+                    {
+                        Quaternion q = Quaternion.Euler(0f, rotY, 0f);
+                        rot = Quaternion.LookRotation(Vector3.Cross(normal, q * Vector3.forward), normal);
+                    }
+                    else rot = Quaternion.Euler(tiltX, rotY, tiltZ);
+                    if (e.ore) found.Add(new Found { prefab = e.prefab, p = p, zone = zoneID });
+                    // the draws the instantiated object's Awake makes (LodFadeInOut: per child, its
+                    // distance to the camera; the object's own position stands in for its children's)
+                    int draws = e.awakeDraws;
+                    if (e.lodFades > 0)
+                    {
+                        var cam = Utils.GetMainCamera();
+                        if (cam != null && Vector3.Distance(cam.transform.position, p) > 20f) draws += e.lodFades;
+                    }
+                    for (int d = 0; d < draws; d++) _ = UnityEngine.Random.value;
+                    if (spawn) Spawn(e.shadow, p, rot, scale, e.veg.m_prefab.GetComponent<ZNetView>() != null, spawned);
+                    any = true;
+                }
+                if (any) placed++;
+                if (placed >= count) break;
+            }
+        }
+
+        private static Vector3 RandomPointInRadius(Vector3 center, float radius)
+        {
+            float f = UnityEngine.Random.value * Mathf.PI * 2f;
+            float r = UnityEngine.Random.Range(0f, radius);
+            return center + new Vector3(Mathf.Sin(f) * r, 0f, Mathf.Cos(f) * r);
+        }
+
+        // ---- blocking: the game's IsBlocked against our scene ----
+
+        private static bool IsBlocked(Vector3 p)
+        {
+            if (blockMode != "physics") return false;
+            p.y += 2000f;
+            return physics.Raycast(p, Vector3.down, out _, 10000f, blockMask, QueryTriggerInteraction.UseGlobal);
+        }
+
+        // ZoneSystem.GetStaticSolidHeight: the first static_solid or terrain hit from above
+        private static bool StaticSolid(ZoneTerrain t, Vector3 p, out float height, out Vector3 normal)
+        {
+            bool ground = Ground(t, p, out height, out normal);
+            if (blockMode == "physics" && physics.Raycast(p + Vector3.up * 1000f, Vector3.down, out var hit, 2000f, staticSolidMask, QueryTriggerInteraction.UseGlobal)
+                && (!ground || hit.point.y > height))
+            { height = hit.point.y; normal = hit.normal; return true; }
+            return ground;
+        }
+
+        // as the game spawns an accepted object: the prefab's own scale unless the drawn scale differs
+        // (networked: ZNetView.SetLocalScale), always the drawn scale for other objects
+        private static void Spawn(Template tp, Vector3 p, Quaternion rot, float scale, bool networked, List<(Template, GameObject)> spawned)
+        {
+            var go = tp.pool.Count > 0 ? tp.pool.Pop() : UnityEngine.Object.Instantiate(tp.root, sceneRoot.transform);
+            go.transform.SetPositionAndRotation(p, rot);
+            go.transform.localScale = networked && scale.Equals(tp.prefabScale.x) ? tp.prefabScale : new Vector3(scale, scale, scale);
+            go.SetActive(true);
+            spawned.Add((tp, go));
+        }
+
+        private static void Release(List<(Template, GameObject)> spawned)
+        {
+            foreach (var (tp, go) in spawned) { go.SetActive(false); tp.pool.Push(go); }
+            spawned.Clear();
+        }
+
+        // ---- the zone's terrain: Heightmap's collision mesh and its lookups, from the build data ----
+
+        private static float H(ZoneTerrain t, int x, int y)
+        {
+            int i = y * (hmWidth + 1) + x;
+            (t.touched ?? (t.touched = new bool[(hmWidth + 1) * (hmWidth + 1)]))[i] = true;
+            return t.data.m_baseHeights[i];
+        }
+        private static long touchedSum, touchedZones; private static int touchedMax;
+
+        private static Vector3 Vertex(ZoneTerrain t, int x, int y) =>
+            t.center + new Vector3((float)((double)hmWidth * hmScale * -0.5), 0f, (float)((double)hmWidth * hmScale * -0.5))
+                + new Vector3((float)((double)x * hmScale), H(t, x, y), (float)((double)y * hmScale));
+
+        // the ray from above against the zone's collision mesh (quads split from (x+1,y) to (x,y+1), as
+        // Heightmap.RebuildCollisionMesh builds them); false outside the zone (no neighbour is loaded)
+        private static bool Ground(ZoneTerrain t, Vector3 p, out float y, out Vector3 normal)
+        {
+            float half = hmWidth * hmScale * 0.5f;
+            float lx = (p.x - (t.center.x - half)) / hmScale, lz = (p.z - (t.center.z - half)) / hmScale;
+            y = p.y; normal = Vector3.up;
+            if (lx < 0f || lz < 0f || lx > hmWidth || lz > hmWidth) return false;
+            int ix = Mathf.Min((int)lx, hmWidth - 1), iz = Mathf.Min((int)lz, hmWidth - 1);
+            float fx = lx - ix, fz = lz - iz;
+            Vector3 v00 = Vertex(t, ix, iz), v10 = Vertex(t, ix + 1, iz), v01 = Vertex(t, ix, iz + 1);
+            Vector3 n;
+            if (fx + fz <= 1f)
+            {
+                y = v00.y + (v10.y - v00.y) * fx + (v01.y - v00.y) * fz;
+                n = Vector3.Cross(v01 - v00, v10 - v00);
+            }
+            else
+            {
+                Vector3 v11 = Vertex(t, ix + 1, iz + 1);
+                y = v11.y + (v01.y - v11.y) * (1f - fx) + (v10.y - v11.y) * (1f - fz);
+                n = Vector3.Cross(v10 - v11, v01 - v11);
+            }
+            if (n.y < 0f) n = -n;
+            normal = n.normalized;
+            return true;
+        }
+
+        // ZoneSystem.GetGroundHeight: the point's own height when the ray misses
+        private static float GroundHeight(ZoneTerrain t, Vector3 p) => Ground(t, p, out float y, out _) ? y : p.y;
+
+        // ZoneSystem.GetTerrainDelta (10 random samples within the radius)
+        private static float TerrainDelta(ZoneTerrain t, Vector3 center, float radius)
+        {
+            float hi = -999999f, lo = 999999f;
+            for (int i = 0; i < 10; i++)
+            {
+                Vector2 v = UnityEngine.Random.insideUnitCircle * radius;
+                float h = GroundHeight(t, center + new Vector3(v.x, 0f, v.y));
+                if (h < lo) lo = h;
+                if (h > hi) hi = h;
+            }
+            return hi - lo;
+        }
+
+        private static readonly float[] weights = new float[10];
+
+        private static float Weight(float x, float y, float rx, float ry)
+        {
+            float dx = (float)((double)x - rx), dy = (float)((double)y - ry);
+            float d = Mathf.Sqrt((float)((double)dx * dx + (double)dy * dy));
+            float w = (float)(1.4140000343322754 - d);
+            return (float)((double)w * w * w);
+        }
+
+        // Heightmap.GetBiome
+        private static Heightmap.Biome GetBiome(ZoneTerrain t, Vector3 point)
+        {
+            var cb = t.data.m_cornerBiomes;
+            if (cb[0].Biome == cb[1].Biome && cb[0].Biome == cb[2].Biome && cb[0].Biome == cb[3].Biome) return cb[0].Biome;
+            float size = hmWidth * hmScale;
+            float x = (point.x - t.center.x) / size + 0.5f, y = (point.z - t.center.z) / size + 0.5f;
+            for (int i = 1; i < weights.Length; i++) weights[i] = 0f;
+            weights[cb[0].Biome.ToIndex()] += Weight(x, y, 0f, 0f);
+            weights[cb[1].Biome.ToIndex()] += Weight(x, y, 1f, 0f);
+            weights[cb[2].Biome.ToIndex()] += Weight(x, y, 0f, 1f);
+            weights[cb[3].Biome.ToIndex()] += Weight(x, y, 1f, 1f);
+            int best = 0; float bw = -99999f;
+            for (int i = 1; i < weights.Length; i++) if (weights[i] > bw) { best = i; bw = weights[i]; }
+            return ((Heightmap.BiomeIndex)best).ToBiome();
+        }
+
+        // Heightmap.GetBiomeArea
+        private static Heightmap.BiomeArea BiomeArea(ZoneTerrain t)
+        {
+            var cb = t.data.m_cornerBiomes;
+            bool edge = !(cb[0].Biome == cb[1].Biome && cb[0].Biome == cb[2].Biome && cb[0].Biome == cb[3].Biome);
+            return edge ? Heightmap.BiomeArea.Edge : Heightmap.BiomeArea.Median;
+        }
+
+        // Heightmap.GetVegetationMask: the paint mask's alpha (the base mask: no location modifiers in Ghost mode)
+        private static float VegetationMask(ZoneTerrain t, Vector3 p)
+        {
+            int n = hmWidth + 1, half = n / 2;
+            float vx = p.x - 0.5f - t.center.x, vz = p.z - 0.5f - t.center.z;
+            int x = Mathf.Clamp(Mathf.FloorToInt(vx / hmScale + 0.5f + half), 0, n - 1);
+            int y = Mathf.Clamp(Mathf.FloorToInt(vz / hmScale + 0.5f + half), 0, n - 1);
+            (t.touched ?? (t.touched = new bool[n * n]))[y * n + x] = true;
+            return t.data.m_baseMask[y * n + x].a;
+        }
+
+        // Heightmap.GetOceanDepth (UpdateCornerDepths, WorldToVertex)
+        private static float OceanDepth(ZoneTerrain t, Vector3 p)
+        {
+            float d0 = Mathf.Max(0f, 30f - H(t, 0, hmWidth)), d1 = Mathf.Max(0f, 30f - H(t, hmWidth, hmWidth));
+            float d2 = Mathf.Max(0f, 30f - H(t, hmWidth, 0)), d3 = Mathf.Max(0f, 30f - H(t, 0, 0));
+            int half = hmWidth / 2;
+            int x = Mathf.FloorToInt((p.x - t.center.x) / hmScale + 0.5f) + half;
+            int y = Mathf.FloorToInt((p.z - t.center.z) / hmScale + 0.5f) + half;
+            float tx = (float)((double)x / (double)(float)hmWidth), ty = (float)y / (float)hmWidth;
+            float a = DUtils.Lerp(d3, d2, tx), b = DUtils.Lerp(d0, d1, tx);
+            return DUtils.Lerp(a, b, ty);
+        }
+
+        // PlaceLocations' clear area for the zone's location (from the world's location plan)
+        private static bool InsideClearArea(Vector2s zone, Vector3 p)
+        {
+            if (!ZoneSystem.instance.m_locationInstances.TryGetValue(zone, out var li) || li.m_location == null || !li.m_location.m_clearArea) return false;
+            float r = li.m_location.m_exteriorRadius;
+            Vector3 c = li.m_position;
+            return p.x > c.x - r && p.x < c.x + r && p.z > c.z - r && p.z < c.z + r;
+        }
+
+        // ---- the file ----
+
+        // the deposits already worked out and the zones done (by index in the zone order, a bitmap in the
+        // header), when the file was made by this version for this world, game version and settings;
+        // nothing otherwise
+        private static void Resume(string path, string seed, string game, List<Found> found, bool[] done)
+        {
+            if (!File.Exists(path)) return;
+            try
+            {
+                var head = new Dictionary<string, string>();
+                var rows = new List<Found>();
+                foreach (var raw in File.ReadLines(path))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0) continue;
+                    if (line[0] == '#')
+                    {
+                        int c = line.IndexOf(':');
+                        if (c > 0) head[line.Substring(1, c - 1).Trim()] = line.Substring(c + 1).Trim();
+                        continue;
+                    }
+                    if (line.StartsWith("prefab,", StringComparison.Ordinal)) continue;
+                    var p = line.Split(',');
+                    if (p.Length < 6) continue;
+                    rows.Add(new Found
+                    {
+                        prefab = p[0],
+                        p = new Vector3(float.Parse(p[1], CultureInfo.InvariantCulture), float.Parse(p[2], CultureInfo.InvariantCulture), float.Parse(p[3], CultureInfo.InvariantCulture)),
+                        zone = new Vector2s(int.Parse(p[4]), int.Parse(p[5]))
+                    });
+                }
+                if (Get(head, "seed") != seed || Get(head, "game_version") != game || Get(head, "inplace_format") != FormatVersion.ToString()
+                    || Get(head, "blocking") != blockMode || Get(head, "all_zones") != (allZones ? "1" : "0")
+                    || Get(head, "done") == null) return;
+                var bits = Convert.FromBase64String(Get(head, "done"));
+                if (bits.Length != (done.Length + 7) / 8) return;
+                for (int i = 0; i < done.Length; i++) done[i] = (bits[i >> 3] & (1 << (i & 7))) != 0;
+                found.AddRange(rows);
+            }
+            catch (Exception e) { ZLog.LogWarning("MuninMap: in-place ore: " + path + " unreadable, starting again: " + e.Message); Array.Clear(done, 0, done.Length); }
+        }
+
+        private static string Get(Dictionary<string, string> d, string k) => d.TryGetValue(k, out var v) ? v : null;
+
+        // written to a temporary name and moved into place, so PredictedOre never reads half a file
+        private static System.Threading.Tasks.Task writing;
+
+        // worker thread
+        private static void Write(string path, string seed, string game, Found[] found, bool[] doneSet, int done, bool complete)
+        {
+            try
+            {
+                var sb = new StringBuilder(64 * found.Length + 256);
+                sb.Append("# seed: ").Append(seed).Append('\n');
+                sb.Append("# game_version: ").Append(game).Append('\n');
+                sb.Append("# method: in-place\n");
+                sb.Append("# inplace_format: ").Append(FormatVersion).Append('\n');
+                sb.Append("# blocking: ").Append(blockMode).Append('\n');
+                sb.Append("# all_zones: ").Append(allZones ? "1" : "0").Append('\n');
+                sb.Append("# zones_done: ").Append(done).Append('\n');
+                sb.Append("# complete: ").Append(complete ? "1" : "0").Append('\n');
+                var bits = new byte[(doneSet.Length + 7) / 8];
+                for (int i = 0; i < doneSet.Length; i++) if (doneSet[i]) bits[i >> 3] |= (byte)(1 << (i & 7));
+                sb.Append("# done: ").Append(Convert.ToBase64String(bits)).Append('\n');
+                sb.Append("prefab,x,y,z,zx,zy\n");
+                foreach (var f in found)
+                    sb.Append(f.prefab).Append(',').Append(f.p.x.ToString("F2", CultureInfo.InvariantCulture)).Append(',')
+                      .Append(f.p.y.ToString("F2", CultureInfo.InvariantCulture)).Append(',').Append(f.p.z.ToString("F2", CultureInfo.InvariantCulture))
+                      .Append(',').Append(f.zone.x).Append(',').Append(f.zone.y).Append('\n');
+                string tmp = path + ".tmp";
+                File.WriteAllText(tmp, sb.ToString());
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(tmp, path);
+            }
+            catch (Exception e) { ZLog.LogWarning("MuninMap: in-place ore: writing " + path + ": " + e.Message); }
+        }
+    }
+}

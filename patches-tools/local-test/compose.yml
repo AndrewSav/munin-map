@@ -29,6 +29,16 @@ x-env: &env
   UPDATE_CRON: ""
   RESTART_CRON: ""
   STEAMCMD_ARGS: ""                # update only; re-checking every file over a Windows-drive mount took ~38 s
+  # predict_ore = in-place test knobs (TASK-4.6), from the shell that runs deploy.ps1; empty: off
+  MUNIN_INPLACE_ALL: ${MUNIN_INPLACE_ALL:-}        # 1: predict generated zones too, to compare with a generated copy
+  MUNIN_INPLACE_BLOCK: ${MUNIN_INPLACE_BLOCK:-}    # none | physics (default)
+  MUNIN_INPLACE_BUDGET_MS: ${MUNIN_INPLACE_BUDGET_MS:-}
+  MUNIN_INPLACE_THREADS: ${MUNIN_INPLACE_THREADS:-}        # worker threads (default 2)
+  MUNIN_INPLACE_FRESH: ${MUNIN_INPLACE_FRESH:-}            # 1: start again rather than resume
+  MUNIN_INPLACE_STOP_AFTER: ${MUNIN_INPLACE_STOP_AFTER:-}  # N: stop after N zones, as if interrupted
+  MUNIN_INPLACE_MEASURE_LOCATIONS: ${MUNIN_INPLACE_MEASURE_LOCATIONS:-}  # 1: measure loading the location prefabs first
+  MUNIN_INPLACE_CHECKED: ${MUNIN_INPLACE_CHECKED:-}        # pretend in-place was checked against this game version
+  MUNIN_INPLACE_ZONE_DELAY_MS: ${MUNIN_INPLACE_ZONE_DELAY_MS:-}  # N: pause N ms after each zone, to watch the order
 
 x-ports: &ports
   # 127.0.0.1 only: nothing else on the network can reach the test server

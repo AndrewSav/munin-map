@@ -210,10 +210,20 @@ stands):
   whole world, up to about 3.5 GB of memory; the live world is never written). Everyone sees its progress (percent
   and time left) or why it failed in Server details; a restart resumes it; it stops when the
   server stops; the deposits show when it finishes, without a restart.
-- **ore-extract**, a standalone tool for admins that ships with each release next to
-  `MuninMap.zip` (Windows x64 and Linux x64, one self-contained file each). It generates a copy of
-  a world headless, with the game's own rules, and writes out where its ore deposits are. How to
-  run it: `ore-extract/README.md`, also inside each download.
+- **`in-place`:** Munin works the deposits out itself, inside the game server, by re-running the
+  game's placement rules for each zone not generated yet, with the game's own data (what is placed
+  where, prefabs and their colliders, the planned locations): no extract and no second process. A
+  whole world takes about 25 seconds on two lowest-priority background threads (plus about 25 seconds
+  to read the location prefabs on a first run, about 100 MB of memory); zones a viewer zooms into go
+  first; a restart resumes; after a game update it works the zones out again by itself. 99.2% of
+  deposits matched on two worlds (an extract: 99.3%): a location's own parts
+  block ore near it, and a location the game turns at random can't be placed. Its rules are copied
+  from the game's code and verified for Valheim 1.0.21; on another version Server details say so.
+
+The extract for `file` comes from **ore-extract**, a standalone tool for admins (not a setting) that
+ships with each release next to `MuninMap.zip` (Windows x64 and Linux x64, one self-contained file
+each). It generates a copy of a world headless, with the game's own rules, and writes out where its
+ore deposits are. How to run it: `ore-extract/README.md`, also inside each download.
 
 On the map, real and predicted ore are one layer, driven by the Ore row:
 - **Style**, in the Ore row's checklist, remembered per browser: *Classic* (the default, upstream's
@@ -223,9 +233,10 @@ On the map, real and predicted ore are one layer, driven by the Ore row:
   and the Ore switch apply to both.
 - A generated zone shows only its real deposits. One a player generates keeps its predictions until
   Munin's sweep has its real ones, so the spot is never empty in between.
-- Server details get rows for the server's game version and the predicted deposits, the
-  prediction's version when it differs (with a short note), and, while the server makes one, its
-  progress and time left; a note says why there are none.
+- Server details get rows for the server's game version, the predicted deposits and the prediction
+  mode, the prediction's version when it differs (with a short note), and, while a prediction is being
+  made, its progress (and in server mode the time left); a note says why there are none, and in
+  `in-place` mode a Verified on row and a note when the server runs another game version.
 
 How it differs from upstream:
 - Upstream shows no predicted ore and has no such tool. New setting `predict_ore`; new endpoints
@@ -234,6 +245,10 @@ How it differs from upstream:
   the same install, and watches it from a background thread; upstream never starts processes. New files in the
   world's data folder: `ore-extract-run/` (while it runs), `ore-extract-status.txt`,
   `ore-extract.log`, and an `ore-extract/` folder next to the worlds.
+- With `predict_ore = in-place` Munin runs two background threads at the lowest priority (on Linux
+  through `setpriority`), loads location prefabs in the background, and writes
+  `predicted-ore-inplace.csv` in the world's data folder. Every tile a browser asks for is passed on
+  to it (one line in upstream's `TileStore.Get`), so it can work those zones out first.
 - On the WebGL map the fork draws the ore itself (upstream's GPU ore dots are switched off while it
   does), in upstream's look by default. The 3D view and the non-WebGL map keep upstream's ore and
   show no predictions.

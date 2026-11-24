@@ -3,9 +3,9 @@ id: doc-2
 title: 'Ore placement: how the game places vegetation in a zone'
 type: specification
 created_date: '2026-11-21T08:53:00Z'
-updated_date: '2026-11-22T19:39:11Z'
+updated_date: '2026-11-24T03:17:51Z'
 ---
-How Valheim places vegetation, ore deposits included, when it generates a zone, and how far that could be reproduced for zones nobody has visited (TASK-4). Source: the decompiled game code (`assembly_valheim`, Valheim 1.0.21) and the game's asset data (`_ZoneSystem`, `_LocationList_*`), read on 2026-11-21. Each point says whether it was read in the code or data, or inferred. Nothing here has been tested.
+How Valheim places vegetation, ore deposits included, when it generates a zone, and how far that could be reproduced for zones nobody has visited (TASK-4). Source: the decompiled game code (`assembly_valheim`, Valheim 1.0.21) and the game's asset data (`_ZoneSystem`, `_LocationList_*`), read on 2026-11-21. Each point says whether it was read in the code or data, or inferred. Points tested since by TASK-4.6's in-place prediction say so.
 
 ## Order inside a zone (read in the code)
 
@@ -27,9 +27,13 @@ How Valheim places vegetation, ore deposits included, when it generates a zone, 
   2. The alt-biome check. On a reject, only those 2 draws are used.
   3. Group size: 1 int.
   4. For each group member: `GetRandomPointInRadius` (2 draws; members after the first only), then rotation, scale, tilt x and tilt z. All drawn before any check.
-- A rejected candidate uses the same draws as an accepted one, with two exceptions. Either one shifts every later candidate of that entry in that zone when the accept or reject is predicted wrongly:
+- A rejected candidate uses the same draws as an accepted one, with three exceptions. Each one shifts every later candidate of that entry in that zone when the accept or reject is predicted wrongly:
   1. `GetTerrainDelta` (`:2699`): 10 `Random.insideUnitCircle` samples, taken only if the candidate gets that far and the entry has a terrain-delta radius. Only `silvervein` has one.
   2. One `Random.value` for `m_chanceToUseGroundTilt > 0` (`:1530`), taken only for an accepted candidate. `MineRock_Tin` and `MineRock_Obsidian` have one.
+  3. **The draws the placed object's own components make when it is instantiated** (tested, TASK-4.6). An accepted object is instantiated inside the loop (`:1545`, `:1566`), and `Instantiate` runs `Awake` on its active objects (enabled components or not). Some `Awake`s draw from the shared random state:
+     - `LodFadeInOut` (`LodFadeInOut.cs`, `Awake`): one `Random.Range` when a main camera exists more than 20 m away and the same object has a `LODGroup`. A dedicated server has a main camera, so the draw happens. `MineRock_Tin`, `rock4_copper` and `silvervein` each have one, as do many rocks and trees placed before them.
+     - Also one draw each, read in the code: `MineRock5`, `Pickable` (when it has a respawn time), `ResourceRoot`, `ZSFX`, `Floating`. `Start` draws (`MineRock`) run a frame later and don't count.
+     Missing this draw put every tin deposit after the first in a zone at the wrong spot (in-place prediction: tin 46% matched without it, 97% with it).
 
 ## The checks, in code order (read in the code)
 
@@ -81,7 +85,7 @@ Also:
 
 ## Other differences between a re-run and the real pass
 
-- **Instantiating doesn't touch the random stream** for these prefabs (inferred, partly checked): their spawn components draw nothing, and `MineRock5`'s draw is in `Start`.
+- **Instantiating does touch the random stream** (corrected; an earlier version of this document said it didn't): see the third exception under "Seeding and random draws".
 - **Game version:** zones generated under an older game version used that version's lists and world-generator version (`World.m_worldGenVersion`). Measure accuracy against zones known to be generated under 1.0.21.
 - **Float differences** between PhysX mesh raycasts and triangle maths only matter at a threshold.
 - **Not involved:** grass and clutter (`ClutterSystem`), dungeons (their own seeds), and player terrain edits (`TerrainComp`, which only exists after a zone has been edited).
@@ -113,7 +117,7 @@ The remaining gaps are blocking and the zone's real terrain, not random numbers.
 - Players are peers, so on a dedicated server nearly every zone is generated in Ghost mode. Inferred: only zones around the server's own reference position get Full.
 
 **What it saves:**
-- Each object still gets a ZDO (`ZNetView.Awake`, `ZNetView.cs:~90-105`), but its GameObject is not added to the scene. `SpawnZone` destroys the GameObjects afterwards (`:1339-1347`).
+- Each object still gets a ZDO (`ZNetView.Awake`, `ZNetView.cs:~90-105`). Its GameObject is instantiated in the scene as in Full mode, with its colliders and its components' `Awake`; it is only not registered with `ZNetScene` (`m_ghost`, `ZNetView.cs:101`). Vegetation without a network component is instantiated too (`ZoneSystem.cs:1566`), in both modes. `SpawnZone` destroys the GameObjects afterwards (`:1339-1347`).
 - The ZDOs are saved and sent to clients.
 - The zone is marked generated (`SetZoneGenerated`, `:1349`).
 - The location instance is marked placed (`:2226-2227`).
@@ -171,7 +175,7 @@ valheim.tools predicts ore in the browser, and players find it the most accurate
 - **Block-tested:** silver, tin, obsidian (and ancient roots). For these it also places every earlier type in the same biomes that has a collider, without showing those, and tests each candidate against those objects' collider shapes.
 - **Not block-tested:** copper and buried iron scrap, though the game has the block check on for both. Given the site's accuracy, the one rock placed before each apparently rarely blocks them, which supports doing copper and scrap first.
 - **The shapes are the prefabs' Unity colliders** (mostly mesh colliders of a few hundred triangles, plus boxes, capsules and a few spheres), with each prefab's scale. They are tested against the game's single vertical block-check ray.
-- **Prefabs without a network component are left out of blocking** (inferred from a flag in their data). That matches Ghost mode on a dedicated server, which spawns only networked objects during generation. So the site models the server's generation, not the game's Full mode.
+- **Prefabs without a network component are left out of blocking** (inferred from a flag in their data). An earlier version of this document said that matches Ghost mode; it doesn't for vegetation: in Ghost mode every accepted vegetation object is instantiated, networked or not, and blocks later candidates (`ZoneSystem.cs:1566`). Only a location's static parts are left out in Ghost mode.
 
 **Clear areas come from the site's own location placement:** it predicts every location's position, then uses a clear-area radius per location type.
 
