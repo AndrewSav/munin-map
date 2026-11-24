@@ -446,6 +446,7 @@ namespace MuninMap
             Patches.Access.AddTo(config);   // patches: TASK-20
             Patches.Seed.AddTo(config);   // patches: TASK-15
             Patches.PredictedOre.AddTo(config);   // patches: TASK-4
+            Patches.ForkVersion.AddTo(config);   // patches: TASK-32 (the fork's version and repository)
             config["reveal_all"] = REVEAL_ALL;
             config["models"] = EXPORT_MODELS;
 

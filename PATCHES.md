@@ -226,3 +226,12 @@ How it differs from upstream:
 - A fork-owned `src/Directory.Build.targets` adds a reference to Unity's physics module; upstream's
   project files are unchanged.
 
+## TASK-32: The fork's name, version and releases on the page
+
+The page names the fork: the GitHub button links to the fork's repository ("Munin Map Patches
+3.4.0-17 on GitHub"), and Server details show "Munin Map Patches" with the fork's release. The update
+check (`check_updates`) follows the fork's releases instead of upstream's, so the "is out" notice and
+its link point at the fork's next release.
+
+How it differs from upstream: upstream links to, shows and checks its own repository and version.
+Upstream files get marked one-line edits; the rest is in `src/Patches/ForkVersion.cs`.

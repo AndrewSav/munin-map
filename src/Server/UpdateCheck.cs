@@ -21,6 +21,7 @@ namespace MuninMap
 
         public static void Start()
         {
+            if (Patches.ForkVersion.StartUpdateCheck()) return;   // patches: TASK-32 (the fork's releases instead)
             if (!MuninConfig.CHECK_UPDATES || thread != null) return;
             thread = new Thread(Loop) { IsBackground = true, Name = "MuninMap update check" };
             thread.Start();

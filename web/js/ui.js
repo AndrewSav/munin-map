@@ -698,7 +698,7 @@ export class Sidebar {
       <dt>Render time / tile</dt><dd>${tiles.avgMs ? tiles.avgMs.toFixed(0) + ' ms' : '–'}${tiles.mainThreadSampling ? ' · main-thread' : ''}</dd>
       <dt>Max detail</dt><dd>${Math.pow(2, 7 - (tiles.maxRenderZoom ?? 7))} m / px</dd>
       <dt>3D models</dt><dd>${prefabs.stats.exported ?? 0} prefabs${prefabs.stats.unreadable ? ` (${prefabs.stats.unreadable} unreadable)` : ''}${prefabs.stats.queued ? ` +${prefabs.stats.queued} queued` : ''}</dd>
-      <dt>Munin Map</dt><dd>${escape(this.app.config?.version || '')}${s.latestVersion ? (newerVersion(s.latestVersion, this.app.config?.version || '') ? ` · <a href="${escape(s.latestUrl || '')}" target="_blank" rel="noopener">${escape(s.latestVersion)} is out</a>` : ' · up to date') : ''}</dd>
+      <dt>Munin Map Patches</dt><dd>${escape(this.app.config?.version || '')}${s.latestVersion ? (newerVersion(s.latestVersion, this.app.config?.version || '') ? ` · <a href="${escape(s.latestUrl || '')}" target="_blank" rel="noopener">${escape(s.latestVersion)} is out</a>` : ' · up to date') : ''}</dd><!-- patches: TASK-32 (was: Munin Map) -->
     </dl>`));
     seedLine(p.lastElementChild, this.app.config);   // patches: TASK-15 (show_seed: the world's seed)
     predictedOreLine(p.lastElementChild);   // patches: TASK-4 (predicted ore)
@@ -1082,7 +1082,7 @@ function sparkline(hist) {
 
 // "3.10.0" newer than "3.9.1", by number (anything after a '-' or '+' left out)
 export function newerVersion(a, b) {
-  const p = (v) => String(v).split(/[-+]/)[0].split('.').map((n) => parseInt(n, 10) || 0);
+  const p = (v) => String(v).replace(/^(\d+\.\d+\.\d+)-(\d+)$/, '$1.$2').split(/[-+]/)[0].split('.').map((n) => parseInt(n, 10) || 0);   // patches: TASK-32 (a fork release X.Y.Z-N compares as X.Y.Z.N)
   const A = p(a), B = p(b);
   for (let i = 0; i < Math.max(A.length, B.length); i++) if ((A[i] || 0) !== (B[i] || 0)) return (A[i] || 0) > (B[i] || 0);
   return false;

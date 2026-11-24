@@ -243,15 +243,16 @@ class App {
     latest = latest || c.latest_version || '';
     const v = c.version || '', newer = latest && newerVersion(latest, v);
     b.classList.toggle('update', !!newer);
-    b.href = newer ? (url || c.latest_url || 'https://github.com/cocopuff2u-gaming/munin-map/releases') : 'https://github.com/cocopuff2u-gaming/munin-map';
-    b.title = newer ? `Munin Map ${latest} is out (this server runs ${v}): see what's new` : `Munin Map${v ? ' ' + v : ''} on GitHub${latest ? ' (up to date)' : ''}`;
+    const repo = c.repo_url || 'https://github.com/cocopuff2u-gaming/munin-map';   // patches: TASK-32 (the fork's repository)
+    b.href = newer ? (url || c.latest_url || repo + '/releases') : repo;   // patches: TASK-32 (was: upstream's URL twice)
+    b.title = newer ? `Munin Map Patches ${latest} is out (this server runs ${v}): see what's new` : `Munin Map Patches${v ? ' ' + v : ''} on GitHub${latest ? ' (up to date)' : ''}`;   // patches: TASK-32 (was: Munin Map)
     // and a note in the bottom right corner, until closed (this browser remembers, for that version)
     const n = $('#update-note');
     let seen = '';
     try { seen = localStorage.getItem('munin-update-seen') || ''; } catch (e) { /* none */ }
     n.hidden = !newer || seen === latest;
     if (n.hidden) return;
-    n.querySelector('span').textContent = `Munin Map ${latest} is out`;
+    n.querySelector('span').textContent = `Munin Map Patches ${latest} is out`;   // patches: TASK-32 (was: Munin Map)
     n.title = `This server runs ${v}`;
     n.querySelector('a').href = b.href;
     n.querySelector('button').onclick = () => { n.hidden = true; try { localStorage.setItem('munin-update-seen', latest); } catch (e) { /* this visit only */ } };
