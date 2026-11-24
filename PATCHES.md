@@ -104,7 +104,8 @@ How it differs from upstream:
 - Upstream lets anyone who can reach the map pin, ping and edit bases under any name, and run
   sweeps. Its switches (`web_pins`, `web_pings`, `web_edit_bases`) keep their meaning here: off
   means off for everyone except the admin token holder; `require_auth` only adds the claim on top.
-- Chat pins (`!pin`, `!undopin`, `!deletepin`) are unchanged: the game has already identified the player.
+- Chat pins (`!pin`, `!undopin`, `!deletepin`) are unchanged: the game has already identified the
+  player.
 - The README and docs describe the admin token as a long random string rather than a word.
 
 ## TASK-22: Per-player web ping limit
@@ -172,17 +173,22 @@ group reaches the game. Setup and settings: docs/ADVANCED.md, "Telegram".
 - **Offline:** the online post is struck through and loses its buttons, and an offline post
   follows. Only on a proper shutdown; Munin waits at most 3 s for it.
 - **Raids and invasions:** with a button to the spot on the map.
-- **Chat:** shouts, or all chat; whispers never. A player's game sends chat to the server only
-  when other players are online to receive it, so a player alone sends no chat to post.
+- **Chat:** shouts, or all chat (`telegram_chat_scope`); whispers never. A player's game sends
+  chat to the server only when other players are online to receive it, so a player alone sends
+  no chat to post.
 - **Players in `hidden_players`** are left out of every Telegram post, including the names near
-  a raid. Kinds listed in `telegram_post_silent` arrive without a notification sound.
+  a raid.
+- **Which kinds are posted** (`telegram_post`: online, offline, join, leave, raid, chat) and which
+  arrive without a notification sound (`telegram_post_silent`, the same names) are set per kind.
+  Without offline the online post stays as it is at shutdown; without online the offline post is
+  sent on its own.
 - Posts go out in the background, so a slow or unreachable Telegram never holds up the game.
 
 How it differs from upstream:
 - Upstream has Discord only. Discord is unchanged here and works as before, alone or with
   Telegram.
 - New settings: `telegram_bot_token`, `telegram_chat_id`, `telegram_topic_id`,
-  `telegram_world_events`, `telegram_post_chat`, `telegram_post_address`,
+  `telegram_post`, `telegram_chat_scope`, `telegram_post_address`,
   `telegram_post_password`, `telegram_post_user_key`, `telegram_post_silent`.
 - The Telegram posts differ from the Discord ones: the password is posted only when turned on,
   the port shown is read from the game's `-port` (the Discord post shows `:1`), hidden players
@@ -229,9 +235,9 @@ How it differs from upstream:
 ## TASK-32: The fork's name, version and releases on the page
 
 The page names the fork: the GitHub button links to the fork's repository ("Munin Map Patches
-3.4.0-17 on GitHub"), and Server details show "Munin Map Patches" with the fork's release. The update
-check (`check_updates`) follows the fork's releases instead of upstream's, so the "is out" notice and
-its link point at the fork's next release.
+3.4.0-17 on GitHub"), and Server details show "Munin Map Patches" with the fork's release. The
+update check (`check_updates`) follows the fork's releases instead of upstream's, so the "is out"
+notice and its link point at the fork's next release.
 
 How it differs from upstream: upstream links to, shows and checks its own repository and version.
 Upstream files get marked one-line edits; the rest is in `src/Patches/ForkVersion.cs`.

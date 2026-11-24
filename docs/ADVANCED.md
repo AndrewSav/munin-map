@@ -35,8 +35,8 @@ File: `BepInEx/config/com.cocopuff2u.muninmap.cfg`. Read at server start only.
 | Server | `telegram_bot_token` | | Telegram bot token, to post the same notices to a Telegram group; see [Telegram](#telegram) |
 | Server | `telegram_chat_id` | | the Telegram group to post to |
 | Server | `telegram_topic_id` | | optional: the topic to post in, for a group with topics |
-| Server | `telegram_world_events` | true | also post raids and invasions to Telegram, with a button to the spot |
-| Server | `telegram_post_chat` | off | relay the game's chat to Telegram: `off`, `shouts` or `all` |
+| Server | `telegram_post` | online, offline, join, leave, raid | kinds of Telegram post sent: `online`, `offline`, `join`, `leave`, `raid`, `chat`; empty: none |
+| Server | `telegram_chat_scope` | shouts | the chat posted when `telegram_post` has `chat`: `shouts`, or `all` for normal chat too |
 | Server | `telegram_post_address` | | the address on the online post; empty: detected |
 | Server | `telegram_post_password` | false | a button to copy the server password on the online post |
 | Server | `telegram_post_user_key` | false | a button to copy the user key on the online post |
@@ -419,16 +419,21 @@ which number to use.
   a killed or crashed server never sends it (the same goes for Discord). Munin
   waits at most 3 seconds for it.
 * **Joins and leaves,** and **raids and invasions** with a button to the spot
-  on the map (`telegram_world_events`).
-* **Chat**, with `telegram_post_chat`: `shouts`, or `all` for normal chat too.
-  Normal chat only reaches players nearby in the game, so `all` shows it to the
-  whole group. Whispers are never posted. A player's game sends chat to the
+  on the map.
+* **Chat**, when you add `chat` to `telegram_post`: shouts, or with
+  `telegram_chat_scope = all` normal chat too. Normal chat only reaches players
+  nearby in the game, so `all` shows it to the whole group. Whispers are never posted. A player's game sends chat to the
   server only when other players are online to receive it, so a player alone on
   the server sends Munin no chat, and none is posted.
 
 Players in `hidden_players` are left out: no joins, leaves or chat of theirs,
-and they're not named near a raid. With `telegram_post_silent` the kinds you
-list arrive without a notification sound, for a busy group.
+and they're not named near a raid.
+
+`telegram_post` lists the kinds that are posted: `online`, `offline`, `join`,
+`leave`, `raid` and `chat` (all but `chat` by default). `telegram_post_silent`
+takes the same names and lists the kinds that arrive without a notification
+sound, for a busy group. Without `offline` the online post stays as it is at
+shutdown; without `online` the offline post is sent on its own.
 
 Posts are sent in the background, a few at a time, as Telegram allows; a
 slow or unreachable Telegram never holds up the game. Failures are written to

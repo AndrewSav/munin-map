@@ -6,9 +6,10 @@
 // hooks below from where it posts to Discord, one marked line each. Every hook only formats and
 // queues (TelegramSender does the sending on its own thread) and never throws.
 //
-// Settings for what Munin sends to the group start telegram_post_; telegram_world_events keeps the
-// name of its Discord twin. If posts from Telegram into the game are added one day (DRAFT-1), they
-// get names of their own, so none of these needs renaming.
+// Settings for what Munin sends to the group start telegram_post_ or telegram_chat_. Which kinds of
+// post go out, and which of them without sound, are two lists of the same kind names (telegram_post,
+// telegram_post_silent; TASK-34). If posts from Telegram into the game are added one day (DRAFT-1),
+// they get names of their own, so none of these needs renaming.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,14 +24,15 @@ namespace MuninMap.Patches
         public static string BotToken = "";
         public static string ChatId = "";
         public static string TopicId = "";
-        public static bool WorldEvents = true;
-        public static string PostChat = "off";     // off, shouts, all
+        public static string Post = "online, offline, join, leave, raid";   // the kinds posted (TASK-34)
+        public static string ChatScope = "shouts"; // shouts, all
         public static string PostAddress = "";     // empty: detected
         public static bool PostPassword = false;
         public static bool PostUserKey = false;
         public static string PostSilent = "";
 
         private static readonly string[] kinds = { "online", "offline", "join", "leave", "raid", "chat" };
+        private static HashSet<string> posted = new HashSet<string>();
         private static HashSet<string> silent = new HashSet<string>();
         private static long cardId;                // the online card's message id, set by the sender thread
         private static bool warnedWording;
@@ -48,12 +50,13 @@ namespace MuninMap.Patches
                 "The Telegram group to post to, a negative number such as -1001234567890. docs/ADVANCED.md says how to find it.").Value ?? "").Trim();
             TopicId = (config.Bind("Server", "telegram_topic_id", TopicId,
                 "Optional, for a group with topics: the topic to post in (its message_thread_id). Empty: the group's main chat.").Value ?? "").Trim();
-            WorldEvents = config.Bind("Server", "telegram_world_events", WorldEvents,
-                "Also post raids and invasions (starting and ending) to Telegram, with a button to the spot on the map when map_url is set.").Value;
-            PostChat = (config.Bind("Server", "telegram_post_chat", PostChat,
-                new ConfigDescription("Relay the game's chat to Telegram: off, shouts (shouts only) or all (normal chat and shouts). "
-                    + "Normal chat only reaches players nearby in the game, so all publishes it to the whole group. Whispers are never relayed.",
-                    new AcceptableValueList<string>("off", "shouts", "all"))).Value ?? "off").Trim().ToLowerInvariant();
+            Post = (config.Bind("Server", "telegram_post", Post,
+                "Kinds of Telegram post sent, comma separated: online, offline, join, leave, raid (raids and invasions, with a button to the spot on the map "
+                + "when map_url is set), chat (the game's chat, see telegram_chat_scope). Empty: nothing is posted.").Value ?? "").Trim();
+            ChatScope = (config.Bind("Server", "telegram_chat_scope", ChatScope,
+                new ConfigDescription("Which chat is posted when telegram_post has chat: shouts, or all (normal chat and shouts). "
+                    + "Normal chat only reaches players nearby in the game, so all publishes it to the whole group. Whispers are never posted.",
+                    new AcceptableValueList<string>("shouts", "all"))).Value ?? "shouts").Trim().ToLowerInvariant();
             PostAddress = (config.Bind("Server", "telegram_post_address", PostAddress,
                 "The server address shown on the online post in Telegram and copied by its Address button. Empty: detected (the public IP and the game port). "
                 + "A host name alone (valheim.example.com) gets the game port added; with a port (valheim.example.com:24560) it is shown as given, for a forwarded port.").Value ?? "").Trim();
@@ -65,13 +68,9 @@ namespace MuninMap.Patches
                 "Kinds of Telegram post sent silently (shown in the group as usual, no sound on phones), comma separated: "
                 + "online, offline, join, leave, raid (raids and invasions), chat. Empty: none.").Value ?? "").Trim();
 
-            silent = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var k in PostSilent.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0))
-            {
-                if (kinds.Contains(k.ToLowerInvariant())) silent.Add(k);
-                else ZLog.LogWarning("MuninMap: Telegram: telegram_post_silent: unknown kind \"" + k + "\" ignored (known: " + string.Join(", ", kinds) + ")");
-            }
-            if (PostChat != "off" && PostChat != "shouts" && PostChat != "all") PostChat = "off";
+            posted = Kinds("telegram_post", Post);
+            silent = Kinds("telegram_post_silent", PostSilent);
+            if (ChatScope != "shouts" && ChatScope != "all") ChatScope = "shouts";
 
             TelegramSender.Token = BotToken;
             TelegramSender.ChatId = ChatId;
@@ -82,6 +81,18 @@ namespace MuninMap.Patches
                 else ZLog.LogWarning("MuninMap: Telegram: telegram_topic_id \"" + TopicId + "\" is not a topic number; posting to the main chat");
             }
             if (On) ZLog.Log("MuninMap: Telegram: posting to chat " + ChatId + (TelegramSender.TopicId != 0 ? ", topic " + TelegramSender.TopicId : ""));
+        }
+
+        // a comma-separated list of kinds; unknown ones are logged and left out
+        private static HashSet<string> Kinds(string setting, string list)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var k in list.Split(',').Select(s => s.Trim()).Where(s => s.Length > 0))
+            {
+                if (kinds.Contains(k.ToLowerInvariant())) set.Add(k);
+                else ZLog.LogWarning("MuninMap: Telegram: " + setting + ": unknown kind \"" + k + "\" ignored (known: " + string.Join(", ", kinds) + ")");
+            }
+            return set;
         }
 
         private static string Server()
@@ -119,7 +130,7 @@ namespace MuninMap.Patches
         {
             try
             {
-                if (!On) return;
+                if (!On || !posted.Contains("online")) return;
                 string address = Address();
                 string password = null;
                 if (PostPassword && MuninMap.serverInfo != null && MuninMap.serverInfo.TryGetValue("password", out var pw)) password = pw?.ToString();
@@ -137,20 +148,23 @@ namespace MuninMap.Patches
         // At shutdown: the offline post, then the online card edited to say offline (its copy buttons
         // gone). The process can end right after this, so it waits, at most 3 s, for both to go out.
         // A forced kill or a crash never gets here, so then no offline post can go out at all.
+        // Without offline in telegram_post neither goes out (the online card stays as it is); without
+        // online there is no card to edit, so only the offline post goes (TASK-34).
         public static void Offline()
         {
             try
             {
-                if (!On) return;
+                if (!On || !posted.Contains("offline")) return;
                 var started = DateTime.UtcNow;
                 ZLog.Log("MuninMap: Telegram: sending the offline post");
                 string server = Server();
                 Queue("offline", TelegramFormat.OfflinePost(server));
-                TelegramSender.Enqueue(new TelegramSender.Post
-                {
-                    Kind = "edit", Method = "editMessageText", Html = TelegramFormat.OfflineCard(server),
-                    EditId = () => Interlocked.Read(ref cardId)
-                });
+                if (posted.Contains("online"))
+                    TelegramSender.Enqueue(new TelegramSender.Post
+                    {
+                        Kind = "edit", Method = "editMessageText", Html = TelegramFormat.OfflineCard(server),
+                        EditId = () => Interlocked.Read(ref cardId)
+                    });
                 bool done = TelegramSender.Flush(3000);
                 ZLog.Log("MuninMap: Telegram: " + (done ? "offline post sent" : "gave up waiting for the offline post")
                     + " after " + (int)(DateTime.UtcNow - started).TotalMilliseconds + " ms");
@@ -160,13 +174,13 @@ namespace MuninMap.Patches
 
         public static void Join(string name)
         {
-            try { if (On && !MuninConfig.IsHidden(name)) Queue("join", TelegramFormat.Join(name)); }
+            try { if (On && posted.Contains("join") && !MuninConfig.IsHidden(name)) Queue("join", TelegramFormat.Join(name)); }
             catch (Exception e) { ZLog.LogWarning("MuninMap: Telegram: join post: " + e.Message); }
         }
 
         public static void Leave(string name)
         {
-            try { if (On && !MuninConfig.IsHidden(name)) Queue("leave", TelegramFormat.Leave(name)); }
+            try { if (On && posted.Contains("leave") && !MuninConfig.IsHidden(name)) Queue("leave", TelegramFormat.Leave(name)); }
             catch (Exception e) { ZLog.LogWarning("MuninMap: Telegram: leave post: " + e.Message); }
         }
 
@@ -175,7 +189,7 @@ namespace MuninMap.Patches
         {
             try
             {
-                if (!On || !WorldEvents || string.IsNullOrEmpty(message)) return;
+                if (!On || !posted.Contains("raid") || string.IsNullOrEmpty(message)) return;
                 string text = TelegramFormat.SafeWithoutHidden(message, MuninConfig.HIDDEN_PLAYERS, MuninConfig.IsHidden, out bool reworded);
                 if (reworded && !warnedWording)
                 {
@@ -194,10 +208,10 @@ namespace MuninMap.Patches
         {
             try
             {
-                if (!On || PostChat == "off" || string.IsNullOrEmpty(text) || name == "Server") return;
+                if (!On || !posted.Contains("chat") || string.IsNullOrEmpty(text) || name == "Server") return;
                 bool shout = type == (int)Talker.Type.Shout;
                 bool normal = type == (int)Talker.Type.Normal;
-                if (!(shout || (normal && PostChat == "all"))) return;   // whispers and pings never
+                if (!(shout || (normal && ChatScope == "all"))) return;   // whispers and pings never
                 if (MuninConfig.IsHidden(name)) return;
                 Queue("chat", TelegramFormat.Chat(shout, name, text));
             }
