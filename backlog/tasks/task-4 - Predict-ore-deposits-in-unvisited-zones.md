@@ -1,10 +1,10 @@
 ---
 id: TASK-4
 title: Predict ore deposits in unvisited zones
-status: To Do
+status: Done
 assignee: []
 created_date: '2026-11-18T03:12:00Z'
-updated_date: '2026-11-22T22:34:09Z'
+updated_date: '2026-11-24T05:06:36Z'
 labels:
   - plugin
   - web
@@ -49,19 +49,19 @@ Ground truth for measuring a prediction: the TASK-27 snapshot, where every zone 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Accuracy is measured first, against the TASK-27 generated snapshot: predictions for the zones generated there (all by the server under 1.0.21, outside live's explored area) are compared with the deposits saved there, and the match rate is recorded in the task notes before the feature goes further
-- [ ] #2 With `reveal_all = true`, the map shows predicted ore deposits in zones that have not been generated yet
-- [ ] #3 Predicted deposits look different from known ones, and the map's legend or layer panel names them as predicted. Per-deposit labels come with DRAFT-3's tooltips
-- [ ] #4 Once a zone is generated, its predicted deposits are replaced by the real ones from the save
-- [ ] #5 With `reveal_all = false`, nothing changes: no predicted deposits are shown or sent
-- [ ] #6 The docs say predictions follow the unmodded game's rules and may be wrong on servers with mods that change world generation
-- [ ] #7 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
+- [x] #1 Accuracy is measured first, against the TASK-27 generated snapshot: predictions for the zones generated there (all by the server under 1.0.21, outside live's explored area) are compared with the deposits saved there, and the match rate is recorded in the task notes before the feature goes further
+- [x] #2 With `reveal_all = true`, the map shows predicted ore deposits in zones that have not been generated yet
+- [x] #3 Predicted deposits look different from known ones, and the map's legend or layer panel names them as predicted. Per-deposit labels come with DRAFT-3's tooltips
+- [x] #4 Once a zone is generated, its predicted deposits are replaced by the real ones from the save
+- [x] #5 With `reveal_all = false`, nothing changes: no predicted deposits are shown or sent
+- [x] #6 The docs say predictions follow the unmodded game's rules and may be wrong on servers with mods that change world generation
+- [x] #7 `PATCHES.md` has an entry for this change: what changes for players and admins, and how it differs from upstream
 - [x] #8 The approach is chosen and recorded in the task before building: re-running the placement rules in Munin, generating zones on a throwaway copy of the world, or an offline export from a generated copy loaded by live Munin as a data file (see the description); and which ores are in scope first
 <!-- AC:END -->
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
+- [x] #1 Written to decision-2 (rebases easily): new behaviour in files we own, upstream edits small and marked, PATCHES.md entry current for a product change
 <!-- DOD:END -->
 
 ## Implementation Notes
@@ -75,4 +75,19 @@ Caveat on TASK-4.1's background result (raised in review): the 'low-priority gen
 TASK-4.2 result, input for criterion #8: the copy method is now a standalone tool, patches-tools/zonegen (Windows and Linux, one self-contained file each). It takes a copy of the world save (or a seed for a fresh world), downloads or reuses the dedicated server and BepInEx, generates every ungenerated zone headless, and writes the ore deposits (or any prefab list) to a CSV. A whole world takes minutes in fast mode and about 1.5 hours as one lowest-priority process on one core, which inside a running server container had no measurable effect on the game server (fps and longest frame unchanged). Accuracy against the TASK-27 snapshot: 99.1-99.3% in every run (copper and tin 99.8-100%, silver 97-98%, obsidian about 98%); a seed-only run matches as well (99.3%), and its location plan matches the save's 99.93% (only Haldor's settled site differs), because that world has never been re-planned. Memory: about 3 GB per process at the peak, mostly game assets, whatever the process count. Safety: memory guard (container-aware), oom_score_adj 1000 on Linux, a job object on Windows, servers quit if the tool dies, incremental output with resume. Cost of the method: a copy of the save, a server install (reused if present), and a rerun after a game update that changes generation or the location version. Still open for #8: Munin loading the file (not started), and whether method 1 is still wanted; nothing decided.
 
 Approach (chosen with the user, 2026-11-23): build all three methods, one active at a time, chosen by a server setting `predict_ore`: `off` (default); `file`, an extract the admin makes with ore-extract (TASK-4.2's zonegen, renamed) on any machine and copies into the world's Munin data folder, no upload through the page; `server`, Munin makes the extract on the server itself in the background, with progress for everyone in the page's server details, resuming after restarts; and `in-place`, Munin works out the placement itself. Why: an extract predicts about 99% of deposits (TASK-4.1/4.2), in minutes with several processes or an hour or two on one low-priority core next to the server; in place needs no setup and no extra process but has to approximate blocking by earlier objects and the zone's terrain, so it is expected to be less exact, though valheim.tools shows the approach can be very accurate. No combining of methods (simpler code, not needed). Real deposits always replace predicted ones; nothing runs or is shown while reveal_all is false. A prediction made for another game version: redone in server mode, otherwise shown with a visible warning on the page. ore-extract becomes part of the product, shipped with releases (TASK-4.3), from a new top-level ore-extract/ folder. Order: the extract methods first (TASK-4.3 to 4.5: most of the work exists, and they give the reference to check in place against), then in place (TASK-4.6), expected to become the usual choice. Consequences: the docs compare the methods (time, memory, accuracy and why in place is less exact) and say how to make an extract by hand and give it to Munin; the extract file format becomes an interface between ore-extract and Munin; in-place work stops for re-evaluation with the user if its accuracy falls short. Scope of the parent criteria: #2-#5 and #7 are met by the subtasks together; #6 (mods) needs care per method: an extract runs the server's game but loads only its own plugin, so world-generation mods are not applied, while in place reads the running server's own data.
+
+2026-11-24, closing: TASK-4.1 to 4.7 done. The approach (criterion #8) changed as the work showed what was practical: all three methods were built (TASK-4.3 to 4.6), and once in-place matched an extract's accuracy in under a minute with nothing to set up, file and server modes were removed (TASK-4.7). Predicted ore is now one on/off feature (predict_ore = true/false); ore-extract stays as fork tooling in patches-tools/ore-extract/, the reference in-place is measured against.
+- #1: measured against the TASK-27 generated snapshot before going further (TASK-4.1/4.2 for the extract, 99.3%; TASK-4.6 for in-place, 99.2%, and the same on a second world).
+- #2: ungenerated zones show predicted deposits with reveal_all on (TASK-4.4, 4.6).
+- #3: predicted deposits are hollow in both styles, and the Ore row's checklist has a 'Predicted ore' option (TASK-4.4); per-deposit labels stay with DRAFT-3.
+- #4: a generated zone shows its real deposits once Munin's sweep has them (TASK-4.4).
+- #5: with reveal_all = false nothing runs, is shown or is sent: checked with predict_ore = true (predicted-ore.json {"on":false}, no predict_ore in the page config, in-place never started, no location prefabs loaded).
+- #6: ADVANCED.md says in-place follows the server's own game data (mods that change what is placed or the world generator are followed; mods that change how vegetation is placed are not).
+- #7: PATCHES.md has the single TASK-4 entry, describing one on/off feature.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+With reveal_all = true and predict_ore = true, the map shows where ore deposits will be in zones nobody has visited yet, to viewers with Spoilers on. Munin works them out itself, inside the game server, by re-running the game's own placement rules with the server's own data: about 99% of deposits right (the same as letting the game generate a copy of the world), usually in under a minute, at the lowest priority, with no noticeable effect on the game server. Real and predicted ore are one layer with two styles; real deposits replace predicted ones once a zone is generated. Built in steps: a headless generator and the ore-extract tool (TASK-4.1/4.2), three prediction modes (TASK-4.3 to 4.6), then down to in-place only once it proved as accurate (TASK-4.7). ore-extract remains as fork tooling for reference extracts and accuracy checks. Follow-ups: DRAFT-10 (what to check after a game update), DRAFT-3 (per-deposit labels).
+<!-- SECTION:FINAL_SUMMARY:END -->
