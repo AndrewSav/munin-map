@@ -33,6 +33,7 @@ for f in assembly_valheim.dll assembly_utils.dll Mono.Security.dll UnityEngine.d
          UnityEngine.JSONSerializeModule.dll UnityEngine.ImageConversionModule.dll UnityEngine.ParticleSystemModule.dll Splatform.dll com.rlabrecque.steamworks.net.dll SoftReferenceableAssets.dll; do
   [ -f "$MANAGED/$f" ] && cp -f "$MANAGED/$f" libs/valheim/ || echo "warning: missing $f"
 done
+cp -f "$MANAGED/UnityEngine.PhysicsModule.dll" libs/valheim/ || echo "warning: missing UnityEngine.PhysicsModule.dll"   # patches: TASK-4.6 (in-place ore prediction)
 
 # --- BepInEx
 if [ ! -f libs/BepInEx/core/BepInEx.dll ]; then

@@ -45,6 +45,7 @@ foreach ($f in $needed) {
   $src = Join-Path $managed $f
   if (Test-Path $src) { Copy-Item $src libs\valheim\ -Force } else { Write-Warning "missing $f (build may still succeed)" }
 }
+Copy-Item (Join-Path $managed "UnityEngine.PhysicsModule.dll") libs\valheim\ -Force   # patches: TASK-4.6 (in-place ore prediction)
 
 # --- 2. BepInEx ---------------------------------------------------------------
 if (-not (Test-Path libs\BepInEx\core\BepInEx.dll)) {
