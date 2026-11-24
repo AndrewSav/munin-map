@@ -10,8 +10,8 @@
 // - middle click pings as the claimed player, or says to claim first;
 // - with the admin key stored, the players panel lists the claims, each with Unclaim.
 // With require_auth off none of this changes anything, except "renamed by" on a renamed base.
-import { getJSON } from './net.js';
-import { clientId, setClientId, escape } from './layers/markers.js';
+import { getJSON } from '../net.js';
+import { clientId, setClientId, escape } from '../layers/markers.js';
 
 const authOn = () => window.app?.config?.require_auth === true;
 const toast = (msg) => window.app?.toast?.(msg);

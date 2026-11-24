@@ -8,9 +8,9 @@ import { iconSvg, colors } from '../icons.js';
 import { getJSON, on } from '../net.js';
 import { MarkerCanvas } from './markercanvas.js';
 import { layerState } from '../layerstate.js';
-import { spoilerPopup } from '../spoilers.js';   // patches: TASK-1
-import { claimPinForm, claimBaseForm, renamedBy } from '../claims.js';   // patches: TASK-20
-import { builtBy } from '../builtby.js';   // patches: TASK-17
+import { spoilerPopup } from '../patches/spoilers.js';   // patches: TASK-1
+import { claimPinForm, claimBaseForm, renamedBy } from '../patches/claims.js';   // patches: TASK-20
+import { builtBy } from '../patches/builtby.js';   // patches: TASK-17
 
 export const LOCATION_CATS = ['spawn', 'boss', 'trader', 'dungeon', 'camp', 'village', 'ruin', 'runestone', 'poi'];
 

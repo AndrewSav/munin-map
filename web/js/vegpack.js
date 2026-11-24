@@ -34,7 +34,7 @@ export function vegShowMask(state) {
   const m = [0, 0];
   for (const g of VEG_GROUPS) {
     if (state[g.key] === false) continue;
-    if (g.key === 'vegOre' && state.vegForkOre) continue;   // patches: TASK-4 (the fork's ore layer, ore-layer.js, draws ore)
+    if (g.key === 'vegOre' && state.vegForkOre) continue;   // patches: TASK-4 (the fork's ore layer, patches/ore-layer.js, draws ore)
     for (const k of g.kinds.map((e) => e[0]).concat(g.more || []))
       if (!state.vegHidden.has(k)) m[k >> 5] |= 1 << (k & 31);
   }

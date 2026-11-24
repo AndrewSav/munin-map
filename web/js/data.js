@@ -4,7 +4,7 @@ import { WORLD_HALF } from './crs.js';
 // server's revision numbers.
 
 import { getJSON, getBuffer, on, state } from './net.js';
-import { spoilerChunk } from './spoilers.js';   // patches: TASK-1
+import { spoilerChunk } from './patches/spoilers.js';   // patches: TASK-1
 
 export const VEG_KIND = ['none', 'deciduous', 'conifer', 'swamptree', 'misttree', 'deadtree', 'bush', 'rock', 'ore', 'stump', 'berry', 'ashtree'];
 

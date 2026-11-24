@@ -20,11 +20,11 @@
 // (data/ore-extract.json, Patches/ServerExtract.cs), polled while the line can show it.
 // ui.js calls oreRows (the layer panel) and predictedOreLine (Server details) from one marked line each.
 
-import { on } from './net.js';
-import { TILE, WORLD_HALF, metersPerPixel } from './crs.js';
-import { VEG, VEG_GROUPS } from './vegpack.js';
-import { layerState as S } from './layerstate.js';
-import { escape } from './layers/markers.js';
+import { on } from '../net.js';
+import { TILE, WORLD_HALF, metersPerPixel } from '../crs.js';
+import { VEG, VEG_GROUPS } from '../vegpack.js';
+import { layerState as S } from '../layerstate.js';
+import { escape } from '../layers/markers.js';
 
 const KEY_STYLE = 'munin-fork-ore-style';                 // classic | shapes, kept per browser
 const KEY_PREDICTED = 'munin-fork-ore-predicted';         // include predicted ore (WebGL map)

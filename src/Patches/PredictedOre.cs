@@ -3,7 +3,7 @@
 // With predict_ore = file and reveal_all on, Munin reads the extract ore-extract wrote for this world
 // (<world data folder>/predicted-ore.csv: a '#' header, then prefab,x,y,z,zx,zy per deposit) and
 // serves its deposits as data/predicted-ore.json for the page to draw as predicted (web/js/
-// ore-layer.js). A zone the game has generated shows its real deposits instead: the ones generated
+// patches/ore-layer.js). A zone the game has generated shows its real deposits instead: the ones generated
 // before the server started are dropped at load; one generated while it runs keeps its predictions
 // until Munin's sweep has its real objects (at most 5 minutes), so the map never shows neither. A viewer without the page's spoiler view gets only
 // deposits on explored ground (in practice none: explored ground is generated), like other game

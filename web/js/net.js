@@ -6,7 +6,7 @@
 //   pin {...}   rmpin {id}   reload
 // The bus fans each frame out to listeners by its `t`.
 
-import { spoilerJSON } from './spoilers.js';   // patches: TASK-1
+import { spoilerJSON } from './patches/spoilers.js';   // patches: TASK-1
 
 const listeners = new Map();
 let ws = null, backoff = 1000, closedByUs = false;

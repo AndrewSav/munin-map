@@ -3,7 +3,7 @@
 // The server sends `by` on those markers: the builder's character name from the game's own record
 // (Live/Stats.cs NameOfPlayerId), only for a player the map has seen and not hidden. Upstream uses it
 // on the player card only.
-import { escape } from './layers/markers.js';
+import { escape } from '../layers/markers.js';
 
 // a marker popup's extra lines (layers/markers.js popupHtml)
 export function builtBy(m, extra) {

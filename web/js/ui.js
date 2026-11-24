@@ -9,10 +9,10 @@ import { RUIN_SITES } from './layers/shapes.js';
 import { on } from './net.js';
 import { RaidLayer } from './layers/raid.js';
 import { BiomeHover } from './biomehover.js';
-import { buildSettings } from './patches-settings.js';   // patches: TASK-1
-import { adminClaims } from './claims.js';   // patches: TASK-20
-import { seedLine } from './seed.js';   // patches: TASK-15
-import { oreRows, predictedOreLine } from './ore-layer.js';   // patches: TASK-4
+import { buildSettings } from './patches/patches-settings.js';   // patches: TASK-1
+import { adminClaims } from './patches/claims.js';   // patches: TASK-20
+import { seedLine } from './patches/seed.js';   // patches: TASK-15
+import { oreRows, predictedOreLine } from './patches/ore-layer.js';   // patches: TASK-4
 
 const $ = (s, r = document) => r.querySelector(s);
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
@@ -283,7 +283,7 @@ export class Sidebar {
       d3.append(row(SHADOW_SVG, 'Shadows', 'Softer on slower devices when off', S.shadows, (v) => S.set('shadows', v)));
     }
 
-    buildSettings(this.app, card);   // patches: TASK-1 (the fork's Settings group: patches-settings.js)
+    buildSettings(this.app, card);   // patches: TASK-1 (the fork's Settings group: patches/patches-settings.js)
 
     // ---- what the colours mean, folded away: buildings by material, trees and rocks by kind
     const legend = foldable(el('<details class="lcard llegend"><summary><h4>Map key</h4><i class="chev"></i></summary><div class="lsub">Buildings</div><div class="legend lb"></div><div class="lsub">Trees &amp; rocks</div><div class="legend lv"></div></details>'), 'Map key', false);

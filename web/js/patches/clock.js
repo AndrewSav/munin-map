@@ -9,7 +9,7 @@
 // pauses its clock then), faster while everyone sleeps and the game fast-forwards to morning.
 // Every update puts it right again.
 
-import { on, state } from './net.js';
+import { on, state } from '../net.js';
 import { addSetting, settingRow, settingIcon } from './patches-settings.js';
 
 const KEY = 'munin-fork-clock';   // this fork's own key, apart from upstream's remembered switches

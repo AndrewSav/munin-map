@@ -1,7 +1,7 @@
 // patches: TASK-4 (TASK-4.4). Real ore deposits as one list, for the page's ore layer (fork only,
 // see PATCHES.md).
 //
-// The page draws all ore, real and predicted, in one layer and one style (web/js/ore-layer.js), so
+// The page draws all ore, real and predicted, in one layer and one style (web/js/patches/ore-layer.js), so
 // it needs the real deposits as points: upstream only sends them packed with the rest of the
 // vegetation for its GPU renderer. data/ore.json lists the ore kinds of Vegetation's published
 // points (read through AccessTools: upstream keeps them private), rebuilt when Vegetation's version

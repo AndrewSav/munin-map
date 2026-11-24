@@ -2,7 +2,7 @@
 // server's grid of biome numbers (data/biomes.grid, explored ground only), fetched the first time
 // the mouse moves and again when exploration may have grown (a 304 when it hasn't).
 import { worldTile } from './crs.js';
-import { spoilerExplored } from './spoilers.js';   // patches: TASK-1
+import { spoilerExplored } from './patches/spoilers.js';   // patches: TASK-1
 
 const N = 1024;   // grid cells a side (~21 m each), BiomeMap.GRID
 
