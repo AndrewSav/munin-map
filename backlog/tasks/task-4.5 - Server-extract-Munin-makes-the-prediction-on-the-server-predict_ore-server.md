@@ -7,7 +7,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T22:22:25Z'
-updated_date: '2026-11-23T15:17:41Z'
+updated_date: '2026-11-24T04:05:23Z'
 labels:
   - plugin
   - web
@@ -98,6 +98,8 @@ Comparison run unattended with the PC idle (2026-11-23/24; each window skips the
 - watch every 5 s: 13 sweeps, 30 fps throughout, longest frame 4.3 ms on average, 6.7 ms at most (one sweep over 6.6), 2 garbage collections; whole run 31 min 0 s.
 - baseline, no extract: 15 sweeps, 30 fps throughout, longest frame 4.2 ms on average, 4.6 ms at most, 2 garbage collections.
 The interval makes no measurable difference. During an extract one sweep in about 13 has a longest frame near 7 ms, in Munin's walk, against a 33 ms frame at 30 fps; fps never drops. The 13 ms markers frame of the earlier run did not recur. Munin keeps 5 s (less work in the game server's process; the wait now wakes at once on a stop request, so stopping is not slower).
+
+Kept here when docs/ADVANCED.md was trimmed (2026-11-24): the server extract won't start without 4.5 GB free (in a container, under the container's limit), stops itself if free memory falls under 1 GB, and on Linux is the first thing the system kills if memory runs out anyway (oom_score_adj 1000). It works on a copy of the world's last save; a brand-new world waits for its first save. A failure (not enough memory, for one) isn't retried until the next start. An extract copied in by hand is used as it is if it is for this world and game version. Its output goes to ore-extract.log in the world's data folder.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

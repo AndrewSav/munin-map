@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-22T22:22:28Z'
-updated_date: '2026-11-24T03:19:07Z'
+updated_date: '2026-11-24T04:05:23Z'
 labels:
   - plugin
   - web
@@ -85,6 +85,8 @@ Verification:
 - #8: Verified on row and note shown with the version overridden; the mode row followed a mode change without a page reload.
 - Munin also ran on a Windows dedicated server for the first time (in-place worked there).
 - The sidebar jump after a restart is upstream's statistics panel emptying and rebuilding (doc-3); the fork's rows no longer change height while a run goes.
+
+Kept here when docs/ADVANCED.md was trimmed (2026-11-24): in-place reads everything from the running server (the vegetation list, prefabs and colliders, planned locations, location prefabs), so mods that change what the game places, or the world generator, are followed; mods that change how the game places vegetation are not. The location prefabs it needs are read in the background during a run, as the game loads them, and about 100 MB of memory stays until the server stops; a restart with a finished prediction reads none.
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
