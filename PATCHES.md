@@ -241,3 +241,13 @@ notice and its link point at the fork's next release.
 
 How it differs from upstream: upstream links to, shows and checks its own repository and version.
 Upstream files get marked one-line edits; the rest is in `src/Patches/ForkVersion.cs`.
+
+## TASK-36: Loads on Valheim 1.0.30 (System.Memory merged into the DLL)
+
+Valheim 1.0.30 stopped shipping `System.Memory.dll` and `System.Runtime.CompilerServices.Unsafe.dll`.
+The fork merges both into `MuninMap.dll` with the other libraries, so ImageSharp loads: WebP tiles
+work, a WebP tile can still be served as PNG, and HarmonyX no longer logs a
+`ReflectionTypeLoadException` for MuninMap at startup.
+
+How it differs from upstream: upstream leaves those two DLLs out of the merge because older
+versions of the game had them. Upstream files get a marked two-line edit in `src/ILRepack.targets`.

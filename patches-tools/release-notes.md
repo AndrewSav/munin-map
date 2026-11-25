@@ -12,4 +12,4 @@ the ones in this file at the latest `patches-*` tag. Internal and tooling tasks 
 After a rebase onto a new upstream version, add `- Updated to Munin Map X.Y.Z` (trimming the released
 lines first, as above); a release on a new upstream version fails without it. Only lines starting with
 `- ` are read.
-- TASK-35: Fixed: predicted and real ore stayed behind when the map glided to a marker picked from a list
+- TASK-36: Fixed: on Valheim 1.0.30 WebP tiles were off and a "ReflectionTypeLoadException" warning showed at startup

@@ -12,6 +12,9 @@
       <InputAssemblies Include="$(OutputPath)System.Buffers.dll" />
       <InputAssemblies Include="$(OutputPath)System.Numerics.Vectors.dll" />
       <InputAssemblies Include="$(OutputPath)System.Text.Encoding.CodePages.dll" />
+      <!-- patches: TASK-36 (Valheim 1.0.30 no longer ships System.Memory or Unsafe) -->
+      <InputAssemblies Include="$(OutputPath)System.Memory.dll" />
+      <InputAssemblies Include="$(OutputPath)System.Runtime.CompilerServices.Unsafe.dll" />
       <LibraryPath Include="$(OutputPath)" />
       <LibraryPath Include="..\libs\valheim" />
       <LibraryPath Include="..\libs\BepInEx\core" />
