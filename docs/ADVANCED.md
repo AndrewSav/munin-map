@@ -470,4 +470,3 @@ game data:
   locations Munin leaves the location's parts out.
 - It follows the server's own game data, so mods that change what the game places, or the world
   generator, are followed; mods that change how the game places vegetation are not.
-- Its rules are verified on Valheim 1.0.21.

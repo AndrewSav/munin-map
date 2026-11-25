@@ -206,7 +206,7 @@ lowest-priority background threads (longer on a slow or busy server; reading the
 needs costs about 100 MB of memory); zones a viewer zooms into go first; a restart resumes; after a
 game update it works the zones out again by itself. About 99% of deposits match the real ones; near
 locations it can be wrong, since which way a location faces is often not decided by the seed. Its
-rules are copied from the game's code and verified for Valheim 1.0.21.
+rules are copied from the game's code and verified for Valheim 1.0.30.
 
 On the map, real and predicted ore are one layer, driven by the Ore row:
 - **Style**, in the Ore row's checklist, remembered per browser: *Classic* (the default, upstream's

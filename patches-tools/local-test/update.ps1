@@ -29,6 +29,21 @@ Step "build the fast image" {
   if ($LASTEXITCODE -ne 0) { throw "image build failed" }
 }
 
+# the game-update routine (patches-tools/game-update) diffs the game before and after an update,
+# so keep this version's assemblies before steamcmd replaces them
+$managed = Join-Path $here "data\server\server\valheim_server_Data\Managed"
+$oldLog = Join-Path $here "data\server\bepinex\BepInEx\LogOutput.log"
+if ((Test-Path $managed) -and (Test-Path $oldLog)) {
+  $old = (Get-TestVersions (Get-Content $oldLog -Raw)).Valheim
+  $keep = Join-Path $here "data\managed\$old"
+  if ($old -and -not (Test-Path $keep)) {
+    Step "keep the $old game assemblies (data\managed\$old)" {
+      New-Item -ItemType Directory -Force $keep | Out-Null
+      Copy-Item (Join-Path $managed "*.dll") $keep
+    }
+  }
+}
+
 $since = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 Step "update with the live image's own startup" {
   docker compose -f $compose --profile update up -d --force-recreate update

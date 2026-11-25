@@ -1,0 +1,45 @@
+# What fork features (and the upstream code they lean on) copy or parse from the game.
+# diff-game.ps1 reports each entry as changed or same between two game versions.
+#   Type          the whole class (its decompiled file)
+#   Type.Member   every overload of one method or property in that class
+# A change here means: read the diff, then update the copy or the parser, or say why not.
+
+# --- in-place ore prediction (src/Patches/InPlaceOre*.cs, doc-2) ---
+# re-runs the game's vegetation pass and location parts; verified version: InPlaceOre.CheckedAgainst
+ZoneSystem.PlaceVegetation
+ZoneSystem.PlaceLocations
+ZoneSystem.SpawnLocation
+ZoneSystem.IsBlocked
+ZoneSystem.GetGroundData
+ZoneSystem.GetTerrainDelta
+ZoneSystem.InsideClearArea
+ZoneSystem.ZoneVegetation
+ZoneSystem.ZoneLocation
+WorldGenerator
+Heightmap
+HeightmapBuilder
+Location
+LocationProxy
+RandomSpawn
+RandomObject
+LodFadeInOut
+MineRock5
+MineRock
+Pickable
+ResourceRoot
+ZSFX
+Floating
+DUtils
+Utils.GetEnabledComponentsInChildren
+Utils.IsEnabledInheirarcy
+Utils.LengthXZ
+StringExtensionMethods.GetStableHashCode
+
+# --- data Munin decodes by hand ---
+# TerrainComp's ZDO blob: src/Tiles/TerrainPatches.cs reads it field by field
+TerrainComp.Save
+TerrainComp.Load
+# cartography table pins (doc-1)
+MapTable
+Minimap.GetSharedMapData
+Minimap.AddSharedMapData

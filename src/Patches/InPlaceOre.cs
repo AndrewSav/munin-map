@@ -36,7 +36,7 @@ namespace MuninMap.Patches
         // for a new game version; on any other version it still runs, and the page says it may be less exact.
         public static string CheckedAgainst
         {
-            get { var v = Environment.GetEnvironmentVariable("MUNIN_INPLACE_CHECKED"); return string.IsNullOrEmpty(v) ? "1.0.21" : v; }   // the variable: testing only
+            get { var v = Environment.GetEnvironmentVariable("MUNIN_INPLACE_CHECKED"); return string.IsNullOrEmpty(v) ? "1.0.30" : v; }   // the variable: testing only
         }
         private const int FormatVersion = 10;   // 5: off the game thread; 6: convex colliders as their hull; 7: out to 10,500 m; 8: location parts; 9: unplaced unique locations left out; 10: an entry blocks itself
 
