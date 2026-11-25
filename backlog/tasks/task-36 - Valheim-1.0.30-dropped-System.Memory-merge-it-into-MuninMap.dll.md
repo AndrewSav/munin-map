@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-25T12:57:40Z'
-updated_date: '2026-11-25T13:15:26Z'
+updated_date: '2026-11-25T13:22:32Z'
 labels:
   - server
 dependencies: []
@@ -48,6 +48,8 @@ Fixed build (compiled against the l-1.0.30 assemblies): assembly refs no longer 
 AC4 is shown statically: the merged DLL references neither assembly, so a game copy is never bound (the merged types are internal). Not run on an older game, as the test server is now on l-1.0.30.
 Patch review (decompiled assembly_valheim l-1.0.21 vs l-1.0.30): ZoneSystem only renames SoftReference.Name to .name and makes global keys case-insensitive; PlaceVegetation, WorldGenerator, Heightmap and Location are unchanged, so in-place ore needs nothing. The Forge of Potential move is location data the game applies when it places locations on a new world; Munin reads m_locationInstances. TerrainComp data format v2 appends a double after the paint grid; TerrainPatches.Decode stops before it, so it still decodes.
 Upstream fix: branch fix/system-memory (off upstream/main), commit 003cc8a.
+
+Windows check: the Windows 1.0.30 client and dedicated server don't ship System.Memory, Unsafe or System.IO.Hashing either. The fixed DLL on a Windows 1.0.30 dedicated server (steamcmd 896660, fresh world): no ReflectionTypeLoad or System.Memory line, 629 fresh tiles converted to WebP, a tile served as WebP (40936 B) and as PNG (59139 B).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary
