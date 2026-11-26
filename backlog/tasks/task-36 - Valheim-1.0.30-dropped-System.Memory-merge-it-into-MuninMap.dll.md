@@ -5,7 +5,7 @@ status: Done
 assignee:
   - '@claude'
 created_date: '2026-11-25T12:57:40Z'
-updated_date: '2026-11-25T13:22:32Z'
+updated_date: '2026-11-25T13:56:44Z'
 labels:
   - server
 dependencies: []
@@ -50,6 +50,8 @@ Patch review (decompiled assembly_valheim l-1.0.21 vs l-1.0.30): ZoneSystem only
 Upstream fix: branch fix/system-memory (off upstream/main), commit 003cc8a.
 
 Windows check: the Windows 1.0.30 client and dedicated server don't ship System.Memory, Unsafe or System.IO.Hashing either. The fixed DLL on a Windows 1.0.30 dedicated server (steamcmd 896660, fresh world): no ReflectionTypeLoad or System.Memory line, 629 fresh tiles converted to WebP, a tile served as WebP (40936 B) and as PNG (59139 B).
+
+Follow-up: TASK-38, drop this change and its PATCHES.md entry once upstream merges the two DLLs (checked at the next rebase).
 <!-- SECTION:NOTES:END -->
 
 ## Final Summary

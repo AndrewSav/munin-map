@@ -113,6 +113,7 @@ ore), fix in-place, measure again.
 | 1.0.21 | TASK-27 snapshot (generated copy) | 99.8% | 99.4% | 97.0% | 100.0% | 98.1% | 99.2% |
 | 1.0.21 | new random seed (extract) | 99.9% | 99.3% | 98.0% | 100.0% | 98.0% | 99.2% |
 | 1.0.30 | new world made on 1.0.30, Windows server (extract) | 99.9% | 99.5% | 96.3% | 100.0% | 98.4% | 99.3% |
+| 1.0.31 | new world made on 1.0.31, Windows server (extract) | 99.9% | 98.9% | 97.9% | 99.9% | 98.6% | 99.3% |
 
 ## 6. Done
 
